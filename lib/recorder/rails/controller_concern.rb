@@ -2,7 +2,7 @@ module Recorder
   module Rails
     # Extensions to rails controllers. Provides convenient ways to pass certain
     # information to the model layer, with `recorder_meta`.
-    module Controller
+    module ControllerConcern
       def self.included(base)
         base.before_action :set_recorder_info
         base.before_action :set_recorder_meta
@@ -24,7 +24,7 @@ module Recorder
 
       def recorder_info
         {
-          # :user_id => self.recorder_user_id,
+          :user_id => self.recorder_user_id,
           :ip => request.remote_ip,
           :action_date => Date.current,
           :meta => self.recorder_meta

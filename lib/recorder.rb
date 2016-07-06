@@ -1,6 +1,6 @@
 require 'recorder/version'
 require 'recorder/observer'
-require 'recorder/rails/controller'
+require 'recorder/rails/controller_concern'
 
 require 'request_store'
 
@@ -37,7 +37,7 @@ module Recorder
 end
 
 if defined?(Draper)
-  require 'recorder/draper/revision_decorator'
+  require 'recorder/draper/decorator_concern'
 end
 
 require 'recorder/revision'
