@@ -1,11 +1,11 @@
 require 'recorder/tape'
-require 'active_support'
+require 'active_support/concern'
 
 module Recorder::Observer
   extend ::ActiveSupport::Concern
 
   included do
-    has_many :revisions, :class_name => 'Recorder::Revision', :inverse_of => :item, :as => :item
+    has_many :revisions, :class_name => '::Recorder::Revision', :inverse_of => :item, :as => :item
   end
 
   module ClassMethods

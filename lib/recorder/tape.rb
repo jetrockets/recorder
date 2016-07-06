@@ -52,7 +52,7 @@ protected
       :action_date => Date.today
     })
 
-    self.item.versions.create(params)
+    self.item.revisions.create(params)
   end
 
   def sanitize_attributes(attributes = {})

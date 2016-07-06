@@ -1,5 +1,5 @@
 # This migration creates the `revisions` table.
-class CreateRevisions < ActiveRecord::Migration
+class CreateRecorderRevisions < ActiveRecord::Migration
   def change
     create_table :recorder_revisions do |t|
       t.string :item_type, null: false
@@ -13,6 +13,6 @@ class CreateRevisions < ActiveRecord::Migration
       t.datetime :created_at, null: false
     end
 
-    add_index :revisions, [:item_type, :item_id]
+    add_index :recorder_revisions, [:item_type, :item_id]
   end
 end

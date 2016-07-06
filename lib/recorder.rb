@@ -2,6 +2,8 @@ require 'recorder/version'
 require 'recorder/observer'
 require 'recorder/rails/controller'
 
+require 'request_store'
+
 module Recorder
   class << self
     # Sets Recorder information from the controller.
@@ -16,6 +18,12 @@ module Recorder
       self.store[:meta] = hash
     end
 
+    # Returns a boolean indicating whether "protected attibutes" should be
+    # configured, e.g. attr_accessible.
+    def active_record_protected_attributes?
+      @active_record_protected_attributes ||= !!defined?(ProtectedAttributes)
+    end
+
     # Thread-safe hash to hold Recorder's data.
     # @api private
     def store
@@ -27,3 +35,9 @@ module Recorder
     end
   end
 end
+
+if defined?(Draper)
+  require 'recorder/draper/revision_decorator'
+end
+
+require 'recorder/revision'

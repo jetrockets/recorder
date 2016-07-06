@@ -1,7 +1,19 @@
-class Recorder::Revision < ActiveRecord::Base
-  self.table_name = 'revisions'
+require 'active_record'
 
-  attr_accessible :event, :user_id, :ip, :user_agent, :action_date, :data, :meta
+class Recorder::Revision < ActiveRecord::Base
+  self.table_name = 'recorder_revisions'
+
+  if ::Recorder.active_record_protected_attributes?
+    attr_accessible(
+      :event,
+      :user_id,
+      :ip,
+      :user_agent,
+      :action_date,
+      :data,
+      :meta
+    )
+  end
 
   belongs_to :item, :polymorphic => true, :inverse_of => :revisions
   belongs_to :user
