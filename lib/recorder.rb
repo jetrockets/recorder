@@ -1,3 +1,4 @@
+require 'recorder/changeset'
 require 'recorder/version'
 require 'recorder/observer'
 require 'recorder/rails/controller_concern'
