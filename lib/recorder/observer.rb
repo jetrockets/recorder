@@ -10,17 +10,21 @@ module Recorder
     end
 
     module ClassMethods
-      def record_changes(options = {})
+      def recorder(options = {})
+        define_method 'recorder_option' do
+          options
+        end
+
         after_commit :on => :create do
-          Recorder::Tape.new(self, options).record_create
+          Recorder::Tape.new(self).record_create
         end
 
         after_commit :on => :update do
-          Recorder::Tape.new(self, options).record_update
+          Recorder::Tape.new(self).record_update
         end
 
         after_commit :on => :destroy do
-          Recorder::Tape.new(self, options).record_destroy
+          Recorder::Tape.new(self).record_destroy
         end
       end
     end

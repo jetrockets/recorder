@@ -1,10 +1,9 @@
 module Recorder
   class Tape
-    attr_reader :item, :options
+    attr_reader :item
 
-    def initialize(item, options = {})
-      @item = item
-      @options = options
+    def initialize(item)
+      @item = item;
     end
 
     def record_create
@@ -56,13 +55,12 @@ module Recorder
     end
 
     def sanitize_attributes(attributes = {})
-      # attributes.symbolize_keys.delete_if{ |key, value|  [:created_at, :updated_at, :delta].include?(key) || (value[0] == value[1]) }
-      attributes.symbolize_keys.except(:created_at, :updated_at, :delta)
+      attributes.symbolize_keys.except(self.item.recorder_options[:except])
     end
 
     def parse_associations_attributes
-      if self.options[:associations].any?
-        self.options[:associations].inject({}) do |hash, association|
+      if self.item.recorder_options[:associations].any?
+        self.item.recorder_options[:associations].inject({}) do |hash, association|
           reflection = self.item.class.reflect_on_association(association)
           if reflection.present?
             if reflection.collection?

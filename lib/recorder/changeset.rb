@@ -6,24 +6,52 @@ module Recorder
       @item = item; @changes = changes
     end
 
-    def attributes
+    def keys
       self.changes.keys
     end
 
     def human_attribute_name(attribute)
-      self.item.class.human_attribute_name(attribute.to_s)
+      if defined?(Draper) && self.item.decorated?
+        self.item.source.class.human_attribute_name(attribute.to_s)
+      else
+        self.item.class.human_attribute_name(attribute.to_s)
+      end
+
     end
 
-    def before(attribute)
-      self.changes[attribute.to_s][0]
+    def previous(attribute)
+      # self.changes[attribute.to_s][0]
+      # self.previous_version.try("display_#{attribute}") || self.previous_version.try(attribute)
+      self.try("previous_#{attribute}") || self.previous_version.try(attribute)
     end
 
-    def after(attribute)
-      self.changes[attribute.to_s][1]
+    def previous_version
+      return @previous_version if defined?(@previous_version)
+
+      @previous_version = self.item.dup
+
+      self.changes.each do |key, change|
+        @previous_version.send("#{key}=", change[0])
+      end
+
+      @previous_version
     end
 
-    # def item_human_attribute_name(attribute)
-    #   self.item.source.class.human_attribute_name(attribute)
-    # end
+    def next(attribute)
+      self.try("next_#{attribute}") || self.next_version.send(attribute)
+      # self.next_version.try("display_#{attribute}") || self.next_version.try(attribute)
+    end
+
+    def next_version
+      return @next_version if defined?(@next_version)
+
+      @next_version = self.item.dup
+
+      self.changes.each do |key, change|
+        @next_version.send("#{key}=", change[1])
+      end
+
+      @next_version
+    end
   end
 end
