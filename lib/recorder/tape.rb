@@ -68,7 +68,7 @@ module Recorder
     end
 
     def sanitize_attributes(attributes = {})
-      if self.item.recorder_options[:except].present?
+      if self.item.respond_to?(:recorder_options) && self.item.recorder_options[:except].present?
         except = Array.wrap(self.item.recorder_options[:except])
         attributes.symbolize_keys.except(*except)
       else
@@ -77,7 +77,7 @@ module Recorder
     end
 
     def parse_associations_attributes(event)
-      if self.item.recorder_options[:associations].present?
+      if self.item.respond_to?(:recorder_options) && self.item.recorder_options[:associations].present?
         self.item.recorder_options[:associations].inject({}) do |hash, association|
           reflection = self.item.class.reflect_on_association(association)
           if reflection.present?
