@@ -32,7 +32,7 @@ class Recorder::Revision < ActiveRecord::Base
   end
 
   def changed_associations
-    self.data['associations'].try(:keys)
+    self.data['associations'].try(:keys) || []
   end
 
   def association_changeset(name)
