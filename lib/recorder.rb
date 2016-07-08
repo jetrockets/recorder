@@ -25,20 +25,17 @@ module Recorder
       @active_record_protected_attributes ||= !!defined?(ProtectedAttributes)
     end
 
+    # Returns version of Recorder as +String+
+    def version
+      VERSION::STRING
+    end
+
     # Thread-safe hash to hold Recorder's data.
     # @api private
     def store
       RequestStore.store[:recorder] ||= { }
     end
-
-    def version
-      VERSION::STRING
-    end
   end
-end
-
-if defined?(Draper)
-  require 'recorder/draper/decorator_concern'
 end
 
 require 'recorder/revision'

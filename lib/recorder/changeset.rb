@@ -16,12 +16,9 @@ module Recorder
       else
         self.item.class.human_attribute_name(attribute.to_s)
       end
-
     end
 
     def previous(attribute)
-      # self.changes[attribute.to_s][0]
-      # self.previous_version.try("display_#{attribute}") || self.previous_version.try(attribute)
       self.try("previous_#{attribute}") || self.previous_version.try(attribute)
     end
 
@@ -39,7 +36,6 @@ module Recorder
 
     def next(attribute)
       self.try("next_#{attribute}") || self.next_version.send(attribute)
-      # self.next_version.try("display_#{attribute}") || self.next_version.try(attribute)
     end
 
     def next_version

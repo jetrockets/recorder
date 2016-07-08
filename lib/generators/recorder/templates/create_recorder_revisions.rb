@@ -1,4 +1,4 @@
-# This migration creates the `revisions` table.
+# This migration creates the `recorder_revisions` table.
 class CreateRecorderRevisions < ActiveRecord::Migration
   def change
     create_table :recorder_revisions do |t|

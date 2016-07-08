@@ -11,7 +11,7 @@ module Recorder
 
     module ClassMethods
       def recorder(options = {})
-        define_method 'recorder_option' do
+        define_method 'recorder_options' do
           options
         end
 

@@ -6,12 +6,23 @@ module Recorder
       @item = item;
     end
 
-    def record_create
-      data = {
-        :changes => self.sanitize_attributes(self.item.attributes)
-      }
+    def changes_for(event)
+      changes = case event.to_sym
+      when :create
+        self.sanitize_attributes(self.item.attributes)
+      when :update
+        self.sanitize_attributes(self.item.previous_changes)
+      when :destroy
+        self.sanitize_attributes(self.item.previous_changes)
+      else
+        raise ArgumentError
+      end
 
-      # changes.merge!(self.parse_associations_attributes)
+      changes.any? ? { :changes => changes } : {}
+    end
+
+    def record_create
+      data = self.changes_for(:create)
 
       if data.any?
         self.record(
@@ -24,12 +35,14 @@ module Recorder
     end
 
     def record_update
-      data = {
-        :changes => self.sanitize_attributes(self.item.previous_changes)
-      }
+      # data = {
+      #   :changes => self.sanitize_attributes(self.item.previous_changes)
+      # }
 
-      associations = self.parse_associations_attributes
-      data.merge!(:associations => self.parse_associations_attributes) if associations.any?
+      data = self.changes_for(:update)
+
+      associations = self.parse_associations_attributes(:update)
+      data.merge!(:associations => self.parse_associations_attributes(:update)) if associations.any?
 
       if data.any?
         self.record(
@@ -55,10 +68,15 @@ module Recorder
     end
 
     def sanitize_attributes(attributes = {})
-      attributes.symbolize_keys.except(self.item.recorder_options[:except])
+      if self.item.recorder_options[:except].present?
+        except = Array.wrap(self.item.recorder_options[:except])
+        attributes.symbolize_keys.except(*except)
+      else
+        attributes
+      end
     end
 
-    def parse_associations_attributes
+    def parse_associations_attributes(event)
       if self.item.recorder_options[:associations].any?
         self.item.recorder_options[:associations].inject({}) do |hash, association|
           reflection = self.item.class.reflect_on_association(association)
@@ -66,13 +84,16 @@ module Recorder
             if reflection.collection?
 
             else
-              object = self.item.send(association)
-
-              if object.present? && self.sanitize_attributes(object.previous_changes).any?
-                hash[reflection.name] = {
-                  :changes => self.sanitize_attributes(object.previous_changes)
-                }
+              if object = self.item.send(association)
+                changes = Recorder::Tape.new(object).changes_for(event)
+                hash[reflection.name] =  changes if changes.any?
               end
+
+              # if object.present? && self.sanitize_attributes(object.previous_changes).any?
+              #   hash[reflection.name] = {
+              #     :changes => self.sanitize_attributes(object.previous_changes)
+              #   }
+              # end
             end
           end
 
