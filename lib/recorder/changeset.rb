@@ -7,7 +7,7 @@ module Recorder
     end
 
     def keys
-      self.changes.keys
+      self.changes.try(:keys) || []
     end
 
     def human_attribute_name(attribute)
