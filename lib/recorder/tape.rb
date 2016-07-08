@@ -42,7 +42,7 @@ module Recorder
       data = self.changes_for(:update)
 
       associations = self.parse_associations_attributes(:update)
-      data.merge!(:associations => self.parse_associations_attributes(:update)) if associations.any?
+      data.merge!(:associations => self.parse_associations_attributes(:update)) if associations.present?
 
       if data.any?
         self.record(
