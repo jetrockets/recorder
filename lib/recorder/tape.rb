@@ -24,6 +24,9 @@ module Recorder
     def record_create
       data = self.changes_for(:create)
 
+      associations_attributes = self.parse_associations_attributes(:create)
+      data.merge!(:associations => associations_attributes) if associations_attributes.present?
+
       if data.any?
         self.record(
           Recorder.store.merge({
@@ -35,14 +38,10 @@ module Recorder
     end
 
     def record_update
-      # data = {
-      #   :changes => self.sanitize_attributes(self.item.previous_changes)
-      # }
-
       data = self.changes_for(:update)
 
-      associations = self.parse_associations_attributes(:update)
-      data.merge!(:associations => self.parse_associations_attributes(:update)) if associations.present?
+      associations_attributes = self.parse_associations_attributes(:update)
+      data.merge!(:associations => associations_attributes) if associations_attributes.present?
 
       if data.any?
         self.record(
@@ -72,11 +71,11 @@ module Recorder
     end
 
     def sanitize_attributes(attributes = {})
-      if self.item.respond_to?(:recorder_options) && self.item.recorder_options[:except].present?
-        except = Array.wrap(self.item.recorder_options[:except])
-        attributes.symbolize_keys.except(*except)
+      if self.item.respond_to?(:recorder_options) && self.item.recorder_options[:ignore].present?
+        ignore = Array.wrap(self.item.recorder_options[:ignore])
+        attributes.symbolize_keys.except(*ignore)
       else
-        attributes
+        attributes.symbolize_keys.except(*Recorder.config.ignore)
       end
     end
 
@@ -92,12 +91,6 @@ module Recorder
                 changes = Recorder::Tape.new(object).changes_for(event)
                 hash[reflection.name] =  changes if changes.any?
               end
-
-              # if object.present? && self.sanitize_attributes(object.previous_changes).any?
-              #   hash[reflection.name] = {
-              #     :changes => self.sanitize_attributes(object.previous_changes)
-              #   }
-              # end
             end
           end
 
