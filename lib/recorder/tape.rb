@@ -4,6 +4,8 @@ module Recorder
 
     def initialize(item)
       @item = item;
+
+      self.item.instance_variable_set(:@recorder_dirty, true)
     end
 
     def changes_for(event)
@@ -90,6 +92,7 @@ module Recorder
               if object = self.item.send(association)
                 changes = Recorder::Tape.new(object).changes_for(event)
                 hash[reflection.name] =  changes if changes.any?
+                object.instance_variable_set(:@recorder_dirty, false)
               end
             end
           end

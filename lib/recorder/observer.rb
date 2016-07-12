@@ -17,6 +17,11 @@ module Recorder
       end
     end
 
+    def recorder_dirty?
+      return @recorder_dirty if defined?(@recorder_dirty)
+      true
+    end
+
     module ClassMethods
       def recorder(options = {})
         define_method 'recorder_options' do
@@ -24,15 +29,21 @@ module Recorder
         end
 
         after_commit :on => :create do
-          Recorder::Tape.new(self).record_create
+          if self.recorder_dirty?
+            Recorder::Tape.new(self).record_create
+          end
         end
 
         after_commit :on => :update do
-          Recorder::Tape.new(self).record_update
+          if self.recorder_dirty?
+            Recorder::Tape.new(self).record_update
+          end
         end
 
         after_commit :on => :destroy do
-          Recorder::Tape.new(self).record_destroy
+          if self.recorder_dirty?
+            Recorder::Tape.new(self).record_destroy
+          end
         end
       end
     end
