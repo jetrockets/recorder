@@ -64,7 +64,11 @@ module Recorder
         :action_date => Date.today
       })
 
-      self.item.revisions.create(params)
+      if self.item.recorder_options[:async]
+        self.item.revisions.create_async(params)
+      else
+        self.item.revisions.create(params)
+      end
     end
 
     def sanitize_attributes(attributes = {})

@@ -30,8 +30,13 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/recorder.
+Bug reports and pull requests are welcome on GitHub at https://github.com/jetrockets/recorder.
 
+## Credits
+
+![JetRockets](http://www.jetrockets.ru/jetrockets.png)
+
+Recorder is maintained by [JetRockets](http://www.jetrockets.ru).
 
 ## License
 

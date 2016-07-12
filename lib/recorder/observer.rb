@@ -6,7 +6,15 @@ module Recorder
     extend ::ActiveSupport::Concern
 
     included do
-      has_many :revisions, :class_name => '::Recorder::Revision', :inverse_of => :item, :as => :item
+      has_many :revisions, :class_name => '::Recorder::Revision', :inverse_of => :item, :as => :item do
+        def create_async(params)
+          Recorder::Sidekiq::RevisionsWorker.perform_async(
+            proxy_association.owner.class.to_s,
+            proxy_association.owner.id,
+            params
+          )
+        end
+      end
     end
 
     module ClassMethods
