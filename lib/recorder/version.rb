@@ -3,7 +3,7 @@ module Recorder
   module VERSION
     MAJOR = 0
     MINOR = 1
-    PATCH = 14
+    PATCH = 15
     PRE = nil
 
     STRING = [MAJOR, MINOR, PATCH, PRE].compact.join(".").freeze
