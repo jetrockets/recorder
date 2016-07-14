@@ -13,9 +13,9 @@ module Recorder
       when :create
         self.sanitize_attributes(self.item.attributes)
       when :update
-        self.sanitize_attributes(self.item.previous_changes)
+        self.sanitize_attributes(self.item.changes)
       when :destroy
-        self.sanitize_attributes(self.item.previous_changes)
+        self.sanitize_attributes(self.item.changes)
       else
         raise ArgumentError
       end
