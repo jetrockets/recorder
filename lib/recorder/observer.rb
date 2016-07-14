@@ -28,21 +28,18 @@ module Recorder
           options
         end
 
-        # after_commit :on => :create do
         after_create do
           if self.recorder_dirty?
             Recorder::Tape.new(self).record_create
           end
         end
 
-        # after_commit :on => :update do
         after_update do
           if self.recorder_dirty?
             Recorder::Tape.new(self).record_update
           end
         end
 
-        # after_commit :on => :destroy do
         after_destroy do
           if self.recorder_dirty?
             Recorder::Tape.new(self).record_destroy

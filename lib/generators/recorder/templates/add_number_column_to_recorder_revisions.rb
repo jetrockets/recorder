@@ -22,8 +22,9 @@ $BODY$ LANGUAGE plpgsql;
     SQL
 
     execute <<-SQL
-CREATE TRIGGER update_recorder_revisions_number BEFORE INSERT ON recorder_revisions FOR EACH ROW
-EXECUTE PROCEDURE get_recorder_revisions_number();
+CREATE TRIGGER update_recorder_revisions_number
+  BEFORE INSERT ON recorder_revisions FOR EACH ROW
+  EXECUTE PROCEDURE get_recorder_revisions_number();
     SQL
   end
 
