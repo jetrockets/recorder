@@ -9,13 +9,13 @@ module Recorder
     end
 
     describe ".new" do
-      it "raises NoMethodError" do
+      it "raises `NoMethodError`" do
         expect { described_class.new }.to raise_error(NoMethodError)
       end
     end
 
     describe '#ignore' do
-      it 'is default to blank Array' do
+      it 'is default to blank `Array`' do
         expect(described_class.instance.ignore).to eq(Array.new)
       end
     end
@@ -29,7 +29,7 @@ module Recorder
         expect(described_class.instance.ignore).to eq(options)
       end
 
-      it 'wraps arguments with Array' do
+      it 'wraps arguments with `Array`' do
         options = :created_at
 
         described_class.instance.ignore = options
@@ -40,7 +40,7 @@ module Recorder
     end
 
     describe '#sidekiq_options' do
-      it 'is default to Hash with options' do
+      it 'is default to `Hash` with options' do
         options = {
           :queue => 'recorder',
           :retry => 10,
