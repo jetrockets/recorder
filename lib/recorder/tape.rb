@@ -74,7 +74,7 @@ module Recorder
 
     def sanitize_attributes(attributes = {})
       if self.item.respond_to?(:recorder_options) && self.item.recorder_options[:ignore].present?
-        ignore = Array.wrap(self.item.recorder_options[:ignore])
+        ignore = Array.wrap(self.item.recorder_options[:ignore]).map(&:to_sym)
         attributes.symbolize_keys.except(*ignore)
       else
         attributes.symbolize_keys.except(*Recorder.config.ignore)

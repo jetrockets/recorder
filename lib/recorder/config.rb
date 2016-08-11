@@ -21,7 +21,7 @@ module Recorder
     end
 
     def ignore=(value)
-      @ignore = Array.wrap(value)
+      @ignore = Array.wrap(value).map(&:to_sym)
     end
 
     # Indicates whether Recorder is on or off. Default: true.
