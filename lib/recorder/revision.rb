@@ -29,6 +29,7 @@ class Recorder::Revision < ActiveRecord::Base
   # @return [Recorder::Changeset]
   def item_changeset
     return @item_changeset if defined?(@item_changeset)
+    return nil if self.data['changes'].nil?
 
     @item_changeset ||= self.changeset_class(self.item).new(self.item, self.data['changes'])
   end
