@@ -6,7 +6,8 @@ module Recorder
       sidekiq_options Recorder.config.sidekiq_options
 
       def perform(klass, id, params)
-        klass.constantize.find(id).revisions.create(params)
+        object = klass.constantize.find_by(:id => id)
+        object.revisions.create(params) if object.present?
       end
     end
   end
