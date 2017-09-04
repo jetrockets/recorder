@@ -36,7 +36,7 @@ module Recorder
     end
 
     def next(attribute)
-      self.try("next_#{attribute}") || self.next_version.send(attribute)
+      self.try("next_#{attribute}") || self.next_version.try(attribute)
     end
 
     def next_version
