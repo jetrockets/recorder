@@ -6,15 +6,15 @@ module Recorder
     extend ::ActiveSupport::Concern
 
     included do
-      has_many :revisions, :class_name => '::Recorder::Revision', :inverse_of => :item, :as => :item do
-        def create_async(params)
-          Recorder::Sidekiq::RevisionsWorker.perform_async(
-            proxy_association.owner.class.to_s,
-            proxy_association.owner.id,
-            params
-          )
-        end
-      end
+
+      #   def create_async(params)
+      #     Recorder::Sidekiq::RevisionsWorker.perform_async(
+      #       proxy_association.owner.class.to_s,
+      #       proxy_association.owner.id,
+      #       params
+      #     )
+      #   end
+      # end
     end
 
     def recorder_dirty?
@@ -23,10 +23,20 @@ module Recorder
     end
 
     module ClassMethods
+      attr_reader :recorder_options
+
       def recorder(options = {})
-        define_method 'recorder_options' do
-          options
-        end
+        @recorder_options = options.reverse_merge(
+          class_name: 'Recorder::Revision',
+          inverse_of: :item,
+          as: :item
+        )
+
+        # define_method 'recorder_options' do
+        #   options
+        # end
+
+        has_many :revisions, :class_name => recorder_options[:class_name], :inverse_of => :item, :as => :item
 
         after_create do
           if self.recorder_dirty?

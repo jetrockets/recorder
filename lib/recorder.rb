@@ -7,20 +7,34 @@ require 'recorder/rails/railtie' if defined? ::Rails::Railtie
 
 require 'request_store'
 
+require 'dry-configurable'
+
 module Recorder
+  extend Dry::Configurable
+
+  setting :enabled, true
+
+  setting :sidekiq_options do
+    setting :queue, 'recorder'
+    setting :retry, 10
+    setting :backtrace, true
+  end
+
+  setting :ignore, Array.new
+
   class << self
     # Switches Recorder on or off.
     # @api public
-    def enabled=(value)
-      Recorder.config.enabled = value
-    end
+    # def enabled=(value)
+    #   Recorder.config.enabled = value
+    # end
 
     # Returns `true` if Recorder is on, `false` otherwise.
     # Recorder is enabled by default.
     # @api public
-    def enabled?
-      !!Recorder.config.enabled
-    end
+    # def enabled?
+    #   !!Recorder.config.enabled
+    # end
 
     # Sets Recorder information from the controller.
     # @api public
@@ -36,17 +50,17 @@ module Recorder
 
     # Returns a boolean indicating whether "protected attibutes" should be
     # configured, e.g. attr_accessible.
-    def active_record_protected_attributes?
-      @active_record_protected_attributes ||= !!defined?(ProtectedAttributes)
-    end
+    # def active_record_protected_attributes?
+    #   @active_record_protected_attributes ||= !!defined?(ProtectedAttributes)
+    # end
 
     # Returns Recorder's configuration object.
     # @api private
-    def config
-      @config ||= Recorder::Config.instance
-      yield @config if block_given?
-      @config
-    end
+    # def config
+    #   @config ||= Recorder::Config.instance
+    #   yield @config if block_given?
+    #   @config
+    # end
 
     # Returns version of Recorder as +String+
     def version
@@ -61,8 +75,4 @@ module Recorder
   end
 end
 
-# if defined?(Sidekiq)
-#   require 'recorder/sidekiq/revisions_worker'
-# end
-
-require 'recorder/revision'
+require 'recorder/model'

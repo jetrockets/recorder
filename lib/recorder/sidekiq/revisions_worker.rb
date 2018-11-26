@@ -3,7 +3,7 @@ module Recorder
     class RevisionsWorker
       include ::Sidekiq::Worker
 
-      sidekiq_options Recorder.config.sidekiq_options
+      sidekiq_options Recorder.config.sidekiq_options.to_h
 
       def perform(klass, id, params)
         object = klass.constantize.find_by(:id => id)
