@@ -27,9 +27,7 @@ module Recorder
 
       def recorder(options = {})
         @recorder_options = options.reverse_merge(
-          class_name: 'Recorder::Revision',
-          inverse_of: :item,
-          as: :item
+          class_name: 'Recorder::Revision'
         )
 
         # define_method 'recorder_options' do
@@ -45,7 +43,10 @@ module Recorder
         end
 
         after_update do
+          puts "!!!"
+          puts  self.recorder_dirty?
           if self.recorder_dirty?
+            puts "!DIRTY"
             Recorder::Tape.new(self).record_update
           end
         end

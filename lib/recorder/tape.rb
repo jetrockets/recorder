@@ -32,7 +32,7 @@ module Recorder
       if data.any?
         self.record(
           Recorder.store.merge({
-            :event => :create,
+            # :event => :create,
             :data => data
           })
         )
@@ -48,7 +48,7 @@ module Recorder
       if data.any?
         self.record(
           Recorder.store.merge({
-            :event => :update,
+            # :event => :update,
             :data => data
           })
         )
@@ -62,19 +62,20 @@ module Recorder
 
     def record(params)
       params.merge!({
-        :action_date => Date.today
+        # :action_date => Date.today
+        performed_at: Time.zone.now
       })
 
-      if self.item.recorder_options[:async]
+      if self.item.class.recorder_options[:async]
         self.item.revisions.create_async(params)
       else
-        self.item.revisions.create(params)
+        self.item.revisions.create!(params)
       end
     end
 
     def sanitize_attributes(attributes = {})
-      if self.item.respond_to?(:recorder_options) && self.item.recorder_options[:ignore].present?
-        ignore = Array.wrap(self.item.recorder_options[:ignore]).map(&:to_sym)
+      if self.item.class.recorder_options[:ignore].present?
+        ignore = Array.wrap(self.item.class.recorder_options[:ignore]).map(&:to_sym)
         attributes.symbolize_keys.except(*ignore)
       else
         attributes.symbolize_keys.except(*Recorder.config.ignore)
@@ -82,8 +83,8 @@ module Recorder
     end
 
     def parse_associations_attributes(event)
-      if self.item.respond_to?(:recorder_options) && self.item.recorder_options[:associations].present?
-        self.item.recorder_options[:associations].inject({}) do |hash, association|
+      if self.item.class.recorder_options[:associations].present?
+        self.item.class.recorder_options[:associations].inject({}) do |hash, association|
           reflection = self.item.class.reflect_on_association(association)
           if reflection.present?
             if reflection.collection?
