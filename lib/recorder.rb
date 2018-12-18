@@ -2,6 +2,7 @@ require 'recorder/config'
 require 'recorder/version'
 require 'recorder/changeset'
 require 'recorder/observer'
+require 'recorder/processor'
 require 'recorder/rails/controller_concern'
 require 'recorder/rails/railtie' if defined? ::Rails::Railtie
 

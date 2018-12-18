@@ -1,4 +1,7 @@
 require 'recorder/tape'
+require 'recorder/strategy/sync_save'
+require 'recorder/strategy/async_save'
+require 'recorder/strategy/batch_sync_save'
 require 'active_support/concern'
 
 module Recorder
@@ -24,8 +27,26 @@ module Recorder
 
     module ClassMethods
       def recorder(options = {})
-        define_method 'recorder_options' do
+        define_method :recorder_options do
           options
+        end
+
+        define_singleton_method :recorder_strategy do
+          @recorder_strategy ||= if options[:strategy]
+            options[:strategy].new(options[:strategy_opts] || {})
+          else
+            if options[:async]
+              Recorder::Strategy::AsyncSave.new
+            else
+              Recorder::Strategy::SyncSave.new
+            end
+          end
+        end
+
+        define_singleton_method :recorder_finalize! do
+          if options[:strategy]
+            options[:strategy].finalize!
+          end
         end
 
         after_create do
