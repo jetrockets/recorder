@@ -13,7 +13,7 @@ module Recorder
       when :create
         self.sanitize_attributes(self.item.attributes)
       when :update
-        self.sanitize_attributes(self.item.changes)
+        self.sanitize_attributes(self.item.respond_to?(:saved_changes) ? self.item.saved_changes : self.item.changes)
       when :destroy
         self.sanitize_attributes(self.item.changes)
       else
