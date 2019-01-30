@@ -108,31 +108,34 @@ module Recorder
     end
 
 
-    # For use this method you need add to your model next config:
-    # recorder associations_hambt: [
+    # For use this method you need add to your model next params:
+    # associations_hambt: [
     #   {
     #     class: :lots,                        # -- name associations
-    #     check_change: :lots_changed?,        # -- method who return true/false if habtm changes
-    #     old_collection: :old_lots_collection # -- old collection
+    #     check_change: lots_changed?,         # -- method who return true/false if habtm changes
+    #     old_collection: old_lots_collection  # -- old collection
     #   }
     # ]
     #
     #
-    # Example
-    # Method rewrites assignment habtm ids
+    # # Example
+    # # Method rewrites assignment habtm ids
     #
     # def lot_ids=(ids)
     #   @lots_changed = ids != lot_ids                   #  return true/nil
     #   @old_lots_collection = lot_ids if @lots_changed  #  remembers the old collection, may be nil
-
     #   super(ids)
     # end
     #
-    #  return true/false if habtm changes
+    # # return true/false if habtm changes
     # def lots_changed?
     #   @lots_changed || false
     # end
-    # And add attr_reade to @old_lots_collection
+    #
+    #
+    # def old_lots_collection
+    #   @old_lots_collection
+    # end
 
     def parse_associations_attributes_for_habtm(event)
       self.item.recorder_options[:associations_hambt].inject({}) do |hash, association|
