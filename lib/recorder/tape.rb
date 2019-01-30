@@ -27,7 +27,10 @@ module Recorder
       data = self.changes_for(:create)
 
       associations_attributes = self.parse_associations_attributes(:create)
+      parse_associations_attributes_for_habtm = self.parse_associations_attributes_for_habtm(:create)
+
       data.merge!(:associations => associations_attributes) if associations_attributes.present?
+      data.merge!(:associations_habtm => parse_associations_attributes_for_habtm) if parse_associations_attributes_for_habtm.present?
 
       if data.any?
         self.record(
@@ -43,7 +46,10 @@ module Recorder
       data = self.changes_for(:update)
 
       associations_attributes = self.parse_associations_attributes(:update)
+      parse_associations_attributes_for_habtm = self.parse_associations_attributes_for_habtm(:update)
+
       data.merge!(:associations => associations_attributes) if associations_attributes.present?
+      data.merge!(:associations_habtm => parse_associations_attributes_for_habtm) if parse_associations_attributes_for_habtm.present?
 
       if data.any?
         self.record(
@@ -91,13 +97,55 @@ module Recorder
             else
               if object = self.item.send(association)
                 changes = Recorder::Tape.new(object).changes_for(event)
-                hash[reflection.name] =  changes if changes.any?
+                hash[reflection.name] = changes if changes.any?
                 object.instance_variable_set(:@recorder_dirty, false)
               end
             end
           end
-
           hash
+        end
+      end
+    end
+
+
+    # For use this method you need add to your model next config:
+    # recorder associations_hambt: [
+    #   {
+    #     class: :lots,                        # -- name associations
+    #     check_change: :lots_changed?,        # -- method who return true/false if habtm changes
+    #     old_collection: :old_lots_collection # -- old collection
+    #   }
+    # ]
+    #
+    #
+    # Example
+    # Method rewrites assignment habtm ids
+    #
+    # def lot_ids=(ids)
+    #   @lots_changed = ids != lot_ids                   #  return true/nil
+    #   @old_lots_collection = lot_ids if @lots_changed  #  remembers the old collection, may be nil
+
+    #   super(ids)
+    # end
+    #
+    #  return true/false if habtm changes
+    # def lots_changed?
+    #   @lots_changed || false
+    # end
+    # And add attr_reade to @old_lots_collection
+
+    def parse_associations_attributes_for_habtm(event)
+      object.item.recorder_options[:associations_hambt].inject({}) do |hash, association|
+        reflection = object.item.class.reflect_on_association(association[:class])
+        if reflection.present?
+          if reflection.collection?
+            if object.item.send(association[:check_change])
+              # changes = Recorder::Tape.new(object).changes_for(:update)
+              # hash[reflection.name]
+            end
+          else
+
+          end
         end
       end
     end
