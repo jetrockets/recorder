@@ -135,18 +135,18 @@ module Recorder
     # And add attr_reade to @old_lots_collection
 
     def parse_associations_attributes_for_habtm(event)
-      object.item.recorder_options[:associations_hambt].inject({}) do |hash, association|
-        reflection = object.item.class.reflect_on_association(association[:class])
+      self.item.recorder_options[:associations_hambt].inject({}) do |hash, association|
+        raise ArgumentError if association[:class].nil? && association[:check_change].nil? && association[:old_collection]
+        reflection = self.item.class.reflect_on_association(association[:class])
         if reflection.present?
           if reflection.collection?
-            if object.item.send(association[:check_change])
-              # changes = Recorder::Tape.new(object).changes_for(:update)
-              # hash[reflection.name]
+            if self.item.send(association[:check_change])
+              changes = [self.item.send(association[:old_collection]), self.item.lot_ids]
+              hash["#{association[:class]}_id".to_sym] = changes
             end
-          else
-
           end
         end
+        hash
       end
     end
   end
