@@ -6,7 +6,7 @@ module Recorder
     extend ::ActiveSupport::Concern
 
     included do
-      has_many :revisions, :class_name => '::Recorder::Revision', :inverse_of => :item, :as => :item do
+      has_many :revisions, class_name: '::Recorder::Revision', inverse_of: :item, as: :item do
         def create_async(params)
           Recorder::Sidekiq::RevisionsWorker.perform_async(
             proxy_association.owner.class.to_s,
@@ -19,6 +19,7 @@ module Recorder
 
     def recorder_dirty?
       return @recorder_dirty if defined?(@recorder_dirty)
+
       true
     end
 

@@ -12,9 +12,9 @@ module Recorder
       @enabled = true
 
       @sidekiq_options = {
-        :queue => 'recorder',
-        :retry => 10,
-        :backtrace => true
+        queue: 'recorder',
+        retry: 10,
+        backtrace: true
       }
 
       @ignore = Array.new

@@ -42,14 +42,20 @@ module Recorder
       ::ActiveRecord::Generators::Base.next_migration_number(dirname)
     end
 
-  protected
+    protected
 
-    def add_or_skip_recorder_migration(template)
+    def add_or_skip_recorder_migration(migration_name)
       migration_dir = File.expand_path('db/migrate')
-      if self.class.migration_exists?(migration_dir, template)
-        ::Kernel.warn "Migration already exists: #{template}"
+      if self.class.migration_exists?(migration_dir, migration_name)
+        ::Kernel.warn "Migration already exists: #{migration_name}"
       else
-        migration_template "#{template}.rb", "db/migrate/#{template}.rb"
+        migration_template("#{migration_name}.rb.erb", "db/migrate/#{migration_name}.rb", migration_version: migration_version)
+      end
+    end
+
+    def migration_version
+      if ::Rails.version.start_with? "5"
+        "[#{::Rails::VERSION::MAJOR}.#{::Rails::VERSION::MINOR}]"
       end
     end
   end

@@ -15,15 +15,15 @@ class Recorder::Revision < ActiveRecord::Base
     )
   end
 
-  belongs_to :item, :polymorphic => true, :inverse_of => :revisions
+  belongs_to :item, polymorphic: true, inverse_of: :revisions
   belongs_to :user
 
-  validates :item, :presence => true
-  validates :event, :presence => true
-  validates :action_date, :presence => true
-  validates :data, :presence => true
+  validates :item, presence: true
+  validates :event, presence: true
+  validates :action_date, presence: true
+  validates :data, presence: true
 
-  scope :ordered_by_created_at, -> { order(:created_at => :desc) }
+  scope :ordered_by_created_at, -> { order(created_at: :desc) }
 
   # Get changeset for an item
   # @return [Recorder::Changeset]
@@ -50,7 +50,7 @@ class Recorder::Revision < ActiveRecord::Base
     self.changeset_class(association).new(association, self.data['associations'].fetch(name.to_s).try(:fetch, 'changes'))
   end
 
-protected
+  protected
 
   # Returns changeset class for passed object.
   # Changeset class name can be overriden with `#recorder_changeset_class` method.

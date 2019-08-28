@@ -3,7 +3,7 @@ module Recorder
     attr_reader :item, :changes
 
     def initialize(item, changes)
-      @item = item;
+      @item = item
       @changes = Hash[changes]
     end
 
