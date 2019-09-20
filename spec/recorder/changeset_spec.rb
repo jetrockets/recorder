@@ -35,7 +35,7 @@ module Recorder
       end
 
       describe 'actual changes' do
-        let(:changes) { { :name => ['Facebook', 'Yandex'], :identifier => ['FB', 'YNDX'] } }
+        let(:changes) { { name: ['Facebook', 'Yandex'], identifier: ['FB', 'YNDX'] } }
 
         it 'returns keys' do
           changeset = described_class.new(item, changes)
@@ -45,7 +45,7 @@ module Recorder
     end
 
     describe '#human_attribute_name' do
-      let(:changes) { { :name => ['Facebook', 'Yandex'], :identifier => ['FB', 'YNDX'] } }
+      let(:changes) { { name: ['Facebook', 'Yandex'], identifier: ['FB', 'YNDX'] } }
 
       describe 'not decorated object' do
         let(:item) { Security.new }

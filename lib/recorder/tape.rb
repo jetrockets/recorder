@@ -3,39 +3,52 @@ module Recorder
     attr_reader :item
 
     def initialize(item)
-      @item = item;
+      @item = item
 
       self.item.instance_variable_set(:@recorder_dirty, true)
     end
 
     def changes_for(event)
       changes = case event.to_sym
-      when :create
-        self.sanitize_attributes(self.item.attributes)
-      when :update
-        self.sanitize_attributes(self.item.changes)
-      when :destroy
-        self.sanitize_attributes(self.item.changes)
-      else
-        raise ArgumentError
+                when :create
+                  self.sanitize_attributes(self.item.attributes)
+                when :update
+                  self.sanitize_attributes(self.item.respond_to?(:saved_changes) ? self.item.saved_changes : self.item.changes)
+                when :destroy
+                  self.sanitize_attributes(self.item.changes)
+                else
+                  raise ArgumentError
+                end
+
+      custom_changes = self.custom_changes_for(event)
+
+      return {} if changes.blank? && custom_changes.blank?
+
+      { changes: (changes || {}).merge(custom_changes) }
+    end
+
+    def custom_changes_for(event)
+      return {} unless item.respond_to?(:recorder_options)
+      method = item.recorder_options[:changes]
+
+      changes = case method
+      when Proc
+        item.instance_exec(event, &method)
+      when String, Symbol
+        item.send(method, event) if item.respond_to?(method)
       end
 
-      changes.any? ? { :changes => changes } : {}
+      changes || {}
     end
 
     def record_create
       data = self.changes_for(:create)
 
       associations_attributes = self.parse_associations_attributes(:create)
-      data.merge!(:associations => associations_attributes) if associations_attributes.present?
+      data.merge!(associations: associations_attributes) if associations_attributes.present?
 
       if data.any?
-        self.record(
-          Recorder.store.merge({
-            :event => :create,
-            :data => data
-          })
-        )
+        self.record(Recorder.store.merge(event: :create, data: data))
       end
     end
 
@@ -43,27 +56,20 @@ module Recorder
       data = self.changes_for(:update)
 
       associations_attributes = self.parse_associations_attributes(:update)
-      data.merge!(:associations => associations_attributes) if associations_attributes.present?
+      data.merge!(associations: associations_attributes) if associations_attributes.present?
 
       if data.any?
-        self.record(
-          Recorder.store.merge({
-            :event => :update,
-            :data => data
-          })
-        )
+        self.record(Recorder.store.merge(event: :update, data: data))
       end
     end
 
     def record_destroy
     end
 
-  protected
+    protected
 
     def record(params)
-      params.merge!({
-        :action_date => Date.today
-      })
+      params.merge!(action_date: Date.today)
 
       if self.item.recorder_options[:async]
         self.item.revisions.create_async(params)
@@ -91,7 +97,7 @@ module Recorder
             else
               if object = self.item.send(association)
                 changes = Recorder::Tape.new(object).changes_for(event)
-                hash[reflection.name] =  changes if changes.any?
+                hash[reflection.name] = changes if changes.any?
                 object.instance_variable_set(:@recorder_dirty, false)
               end
             end

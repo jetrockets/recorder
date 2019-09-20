@@ -1,5 +1,5 @@
 # This migration creates the `recorder_revisions` table.
-class CreateRecorderRevisions < ActiveRecord::Migration
+class CreateRecorderRevisions < ActiveRecord::Migration<%= migration_version %>
   def change
     create_table :recorder_revisions do |t|
       t.string :item_type, null: false

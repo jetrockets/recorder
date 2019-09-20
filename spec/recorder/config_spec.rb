@@ -42,9 +42,9 @@ module Recorder
     describe '#sidekiq_options' do
       it 'is default to `Hash` with options' do
         options = {
-          :queue => 'recorder',
-          :retry => 10,
-          :backtrace => true
+          queue: 'recorder',
+          retry: 10,
+          backtrace: true
         }
 
         expect(described_class.instance.sidekiq_options).to be_an_instance_of(Hash)
@@ -53,9 +53,9 @@ module Recorder
 
       it 'accepts configuration' do
         options = {
-          :queue => 'myqueue',
-          :retry => 5,
-          :backtrace => false
+          queue: 'myqueue',
+          retry: 5,
+          backtrace: false
         }
 
         described_class.instance.sidekiq_options = options

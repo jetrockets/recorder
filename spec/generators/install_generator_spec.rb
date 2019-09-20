@@ -61,7 +61,7 @@ describe Recorder::InstallGenerator, type: :generator do
               contains "CREATE OR REPLACE FUNCTION get_recorder_revisions_number()"
               contains "CREATE TRIGGER update_recorder_revisions_number"
               contains "def down"
-              contains "DROP TRIGGER update_recorder_revisions_number;"
+              contains "DROP TRIGGER update_recorder_revisions_number ON recorder_revisions;"
               contains "DROP FUNCTION IF EXISTS get_recorder_revisions_number;"
               contains "remove_column :recorder_revisions, :number"
             end

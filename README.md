@@ -12,15 +12,35 @@ gem 'recorder'
 
 And then execute:
 
-    $ bundle
+$ bundle
 
 Or install it yourself as:
 
-    $ gem install recorder
+$ gem install recorder
+
+Then, in your project directory:
+
+$ rails generate recorder:install --with_number_column --with_index_by_user_id
 
 ## Usage
 
-TODO: Write usage instructions here
+Just add in model:
+
+```ruby
+include ::Recorder::Observer
+```
+
+Add in controller:
+
+```ruby
+include Recorder::Rails::ControllerConcern
+```
+
+Also, you can specify options in model like:
+
+```ruby
+recorder async: true, ignore: [:created_at, :updated_at]
+```
 
 ## Development
 
@@ -34,11 +54,10 @@ Bug reports and pull requests are welcome on GitHub at https://github.com/jetroc
 
 ## Credits
 
-![JetRockets](http://www.jetrockets.ru/jetrockets.png)
+![JetRockets](http://jetrockets.pro/jetrockets-white.png)
 
 Recorder is maintained by [JetRockets](http://www.jetrockets.ru).
 
 ## License
 
 The gem is available as open source under the terms of the [MIT License](http://opensource.org/licenses/MIT).
-
