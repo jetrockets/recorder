@@ -22,7 +22,7 @@ module Recorder
 
     describe '#ignore=' do
       it 'accepts configuration' do
-        options = [:created_at, :updated_at]
+        options = %i[created_at updated_at]
 
         described_class.instance.ignore = options
 
@@ -36,6 +36,31 @@ module Recorder
 
         expect(described_class.instance.ignore).to be_an_instance_of(Array)
         expect(described_class.instance.ignore).to eq(Array.wrap(options))
+      end
+    end
+
+    describe '#only' do
+      it 'defaults to empty `Array`' do
+        expect(described_class.instance.only).to eq([])
+      end
+    end
+
+    describe '#only=' do
+      it 'accepts configuration' do
+        options = %i[created_at updated_at]
+
+        described_class.instance.only = options
+
+        expect(described_class.instance.only).to eq(options)
+      end
+
+      it 'wraps argument with `Array`' do
+        options = :created_at
+
+        described_class.instance.only = options
+
+        expect(described_class.instance.only).to be_an_instance_of(Array)
+        expect(described_class.instance.only).to eq(Array.wrap(options))
       end
     end
 

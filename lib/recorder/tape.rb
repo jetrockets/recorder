@@ -73,12 +73,24 @@ module Recorder
     end
 
     def sanitize_attributes(attributes = {})
-      if self.item.respond_to?(:recorder_options) && self.item.recorder_options[:ignore].present?
-        ignore = Array.wrap(self.item.recorder_options[:ignore]).map(&:to_sym)
-        attributes.symbolize_keys.except(*ignore)
+      attributes = attributes.dup.symbolize_keys
+
+      if item.respond_to?(:recorder_options)
+        if item.recorder_options[:ignore].present?
+          ignore = Array.wrap(item.recorder_options[:ignore]).map(&:to_sym)
+          attributes = attributes.except(*ignore)
+        end
+
+        if item.recorder_options[:only].present?
+          only = Array.wrap(item.recorder_options[:only]).map(&:to_sym)
+          attributes = attributes.slice(*only)
+        end
+
       else
-        attributes.symbolize_keys.except(*Recorder.config.ignore)
+        attributes = attributes.except(*Recorder.config.ignore)
+        attributes = attributes.slice(*Recorder.config.only) unless Recorder.config.only.empty?
       end
+        attributes
     end
 
     def parse_associations_attributes(event)
