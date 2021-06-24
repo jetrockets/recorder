@@ -8,7 +8,8 @@ module Recorder
     included do
       has_many :revisions, :class_name => '::Recorder::Revision', :inverse_of => :item, :as => :item do
         def create_async(params)
-          Recorder::Sidekiq::RevisionsWorker.perform_async(
+          Recorder::Sidekiq::RevisionsWorker.perform_in(
+            proxy_association.owner.recorder_options[:delay] || 2.seconds,
             proxy_association.owner.class.to_s,
             proxy_association.owner.id,
             params
