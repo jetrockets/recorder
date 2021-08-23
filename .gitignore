@@ -9,3 +9,7 @@
 /tmp/
 
 /spec/dummy/config/database.yml
+
+# Ignore vim swap files
+*.swp
+*.swo

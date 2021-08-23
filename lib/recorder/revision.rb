@@ -25,6 +25,22 @@ class Recorder::Revision < ActiveRecord::Base
 
   scope :ordered_by_created_at, -> { order(:created_at => :desc) }
 
+  def item
+    super || restore_item
+  end
+
+  def restore_item
+    object = item_type.classify.constantize.new(data['attributes'])
+
+    if data['associations'].present?
+      data['associations'].each do |name, association|
+        object.send("build_#{name}", association['attributes'])
+      end
+    end
+
+    object
+  end
+
   # Get changeset for an item
   # @return [Recorder::Changeset]
   def item_changeset

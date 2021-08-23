@@ -4,7 +4,7 @@ module Recorder
   # Global configuration options
   class Config
     include Singleton
-    attr_accessor :sidekiq_options, :ignore
+    attr_accessor :sidekiq_options, :ignore, :only
 
     def initialize
       # Variables which affect all threads, whose access is synchronized.
@@ -18,10 +18,15 @@ module Recorder
       }
 
       @ignore = Array.new
+      @only = Array.new
     end
 
     def ignore=(value)
       @ignore = Array.wrap(value).map(&:to_sym)
+    end
+
+    def only=(value)
+      @only = Array.wrap(value).map(&:to_sym)
     end
 
     # Indicates whether Recorder is on or off. Default: true.

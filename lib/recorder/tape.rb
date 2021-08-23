@@ -5,99 +5,145 @@ module Recorder
     def initialize(item)
       @item = item;
 
-      self.item.instance_variable_set(:@recorder_dirty, true)
-    end
-
-    def changes_for(event)
-      changes = case event.to_sym
-      when :create
-        self.sanitize_attributes(self.item.attributes)
-      when :update
-        self.sanitize_attributes(self.item.changes)
-      when :destroy
-        self.sanitize_attributes(self.item.changes)
-      else
-        raise ArgumentError
-      end
-
-      changes.any? ? { :changes => changes } : {}
+      item.instance_variable_set(:@recorder_dirty, true)
     end
 
     def record_create
-      data = self.changes_for(:create)
-
-      associations_attributes = self.parse_associations_attributes(:create)
-      data.merge!(:associations => associations_attributes) if associations_attributes.present?
+      data = data_for(:create, recorder_options)
 
       if data.any?
-        self.record(
+        record(
           Recorder.store.merge({
-            :event => :create,
-            :data => data
+            event: :create,
+            data: data
           })
         )
       end
     end
 
     def record_update
-      data = self.changes_for(:update)
-
-      associations_attributes = self.parse_associations_attributes(:update)
-      data.merge!(:associations => associations_attributes) if associations_attributes.present?
+      data = data_for(:update, recorder_options)
 
       if data.any?
-        self.record(
+        record(
           Recorder.store.merge({
-            :event => :update,
-            :data => data
+            event: :update,
+            data: data
           })
         )
       end
     end
 
     def record_destroy
+      data = data_for(:destroy, recorder_options)
+
+      if data.any?
+        record(
+          Recorder.store.merge({
+            event: :destroy,
+            data: data
+          })
+        )
+      end
+    end
+
+    def data_for(event, options = {})
+      {
+        **attributes_for(event, options),
+        **changes_for(event, options),
+        **associations_for(event, options)
+      }
     end
 
   protected
 
-    def record(params)
-      params.merge!({
-        :action_date => Date.today
-      })
+    def recorder_options
+      item.respond_to?(:recorder_options) ? item.recorder_options : {}
+    end
 
-      if self.item.recorder_options[:async]
-        self.item.revisions.create_async(params)
+    def attributes_for(event, options)
+      { attributes: sanitize_attributes(item.attributes, options) }
+    end
+
+    def changes_for(event, options)
+      changes =
+        case event.to_sym
+        when :update
+          sanitize_attributes(item.saved_changes, options)
+        end
+
+      changes.present? ? { changes: changes } : {}
+    end
+
+    def associations_for(event, options)
+      associations = parse_associations_attributes(event, options)
+
+      associations.present? ? { associations: associations } : {}
+    end
+
+    def record(params)
+      params.merge!(action_date: Date.today)
+
+      puts "!!!!!!!"
+      puts params
+
+      if item.recorder_options[:async]
+        record_async(item, params)
       else
-        self.item.revisions.create(params)
+        Recorder::Revision.create(
+          item: item,
+          **params
+        )
       end
     end
 
-    def sanitize_attributes(attributes = {})
-      if self.item.respond_to?(:recorder_options) && self.item.recorder_options[:ignore].present?
-        ignore = Array.wrap(self.item.recorder_options[:ignore]).map(&:to_sym)
+    def record_async(item, params)
+      Recorder::Sidekiq::RevisionsWorker.perform_in(
+        item.recorder_options[:delay] || 2.seconds,
+        item.class.to_s,
+        item.id,
+        params
+      )
+    end
+
+    def sanitize_attributes(attributes = {}, options)
+      if options[:only].present?
+        only = wrap_options(options[:only])
+        attributes.symbolize_keys.slice(*only)
+      elsif options[:ignore].present?
+        ignore = wrap_options(options[:ignore])
         attributes.symbolize_keys.except(*ignore)
       else
         attributes.symbolize_keys.except(*Recorder.config.ignore)
       end
     end
 
-    def parse_associations_attributes(event)
-      if self.item.respond_to?(:recorder_options) && self.item.recorder_options[:associations].present?
-        self.item.recorder_options[:associations].inject({}) do |hash, association|
-          reflection = self.item.class.reflect_on_association(association)
-          if reflection.present?
-            if reflection.collection?
+    def wrap_options(values)
+      Array.wrap(values).map(&:to_sym)
+    end
 
-            else
-              if object = self.item.send(association)
-                changes = Recorder::Tape.new(object).changes_for(event)
-                hash[reflection.name] =  changes if changes.any?
-                object.instance_variable_set(:@recorder_dirty, false)
-              end
-            end
-          end
+    def parse_associations_attributes(event, options)
+      return unless options[:associations]
 
-          hash
+      options[:associations].inject({}) do |hash, (association, options)|
+        name, data = parse_association(event, association, options)
+
+        hash[name] = data if data.any?
+        hash
+      end
+    end
+
+    def parse_association(event, association, options)
+      reflection = item.class.reflect_on_association(association)
+
+      if reflection.present?
+        if reflection.collection?
+
+        elsif object = item.send(association)
+          data = Recorder::Tape.new(object).data_for(event, options || {})
+          object.instance_variable_set(:@recorder_dirty, false)
+
+          [reflection.name, data]
         end
       end
     end
