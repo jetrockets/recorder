@@ -15,10 +15,8 @@ class Recorder::Revision < ActiveRecord::Base
     )
   end
 
-  belongs_to :item, polymorphic: true, inverse_of: :revisions
   belongs_to :user
 
-  #validates :item, presence: true
   validates :item_type, presence: true
   validates :event, presence: true
   validates :action_date, presence: true
@@ -27,44 +25,44 @@ class Recorder::Revision < ActiveRecord::Base
   scope :ordered_by_created_at, -> { order(created_at: :desc) }
 
   def item
-    super || restore_item
-  end
+    return @item if defined?(@item)
+    return if item_id.nil?
 
-  def restore_item
-    object = item_type.classify.constantize.new(data['attributes'])
+    @item = item_type.classify.constantize.new(data['attributes'])
 
     if data['associations'].present?
       data['associations'].each do |name, association|
-        object.send("build_#{name}", association['attributes'])
+        @item.send("build_#{name}", association['attributes'])
       end
     end
 
-    object
+    @item
   end
 
   # Get changeset for an item
   # @return [Recorder::Changeset]
   def item_changeset
     return @item_changeset if defined?(@item_changeset)
-    return nil if self.data['changes'].nil?
+    return nil if item.nil?
+    return nil if data['changes'].nil?
 
-    @item_changeset ||= self.changeset_class(self.item).new(self.item, self.data['changes'])
+    @item_changeset ||= changeset_class(item).new(item, data['changes'])
   end
 
   # Get names of item associations that has been changed
   # @return [Array]
   def changed_associations
-    self.data['associations'].try(:keys) || []
+    data['associations'].try(:keys) || []
   end
 
   # Get changeset for an association
   # @param name [String] name of association to return changeset
   # @return [Recorder::Changeset]
   def association_changeset(name)
-    association = self.item.send(name)
+    association = item.send(name)
     # association = association.source if association.decorated?
 
-    self.changeset_class(association).new(association, self.data['associations'].fetch(name.to_s).try(:fetch, 'changes'))
+    changeset_class(association).new(association, data['associations'].fetch(name.to_s).try(:fetch, 'changes'))
   end
 
 protected

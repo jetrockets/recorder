@@ -1,7 +1,9 @@
 module Recorder
   class Tape
-    module ClassMethods
+    module Record
       def record(params, options = {})
+        return if Recorder.store.recorder_disabled?
+
         params = params_for(params)
 
         if async?(options)
@@ -14,7 +16,7 @@ module Recorder
       private
 
       def params_for(params)
-        Recorder.store.merge({
+        Recorder.store.params.merge({
           action_date: Date.today,
           **params
         })

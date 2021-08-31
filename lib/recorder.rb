@@ -1,11 +1,13 @@
 require 'recorder/config'
 require 'recorder/version'
+
 require 'recorder/changeset'
+require 'recorder/store'
+require 'recorder/manager'
 require 'recorder/observer'
+
 require 'recorder/rails/controller_concern'
 require 'recorder/rails/railtie' if defined? ::Rails::Railtie
-
-require 'request_store'
 
 module Recorder
   class << self
@@ -25,13 +27,13 @@ module Recorder
     # Sets Recorder information from the controller.
     # @api public
     def info=(hash)
-      self.store.merge!(hash)
+      store.params.merge!(hash)
     end
 
     # Sets Recorder meta information.
     # @api public
     def meta=(hash)
-      self.store[:meta] = hash
+      store.params[:meta] = hash
     end
 
     # Returns a boolean indicating whether "protected attibutes" should be
@@ -48,15 +50,15 @@ module Recorder
       @config
     end
 
-    # Returns version of Recorder as +String+
-    def version
-      VERSION::STRING
-    end
-
     # Thread-safe hash to hold Recorder's data.
     # @api private
     def store
-      RequestStore.store[:recorder] ||= { }
+      @store ||= Recorder::Store.new
+    end
+
+    # Returns version of Recorder as +String+
+    def version
+      VERSION::STRING
     end
   end
 end

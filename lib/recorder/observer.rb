@@ -14,6 +14,10 @@ module Recorder
       true
     end
 
+    def recorder_record?
+      recorder_dirty? && Recorder.store.recorder_enabled?
+    end
+
     module ClassMethods
       def recorder(options = {})
         define_method 'recorder_options' do
@@ -21,19 +25,19 @@ module Recorder
         end
 
         after_create do
-          if self.recorder_dirty?
+          if recorder_record?
             Recorder::Tape.new(self).record_create
           end
         end
 
         after_update do
-          if self.recorder_dirty?
+          if recorder_record?
             Recorder::Tape.new(self).record_update
           end
         end
 
         after_destroy do
-          if self.recorder_dirty?
+          if recorder_record?
             Recorder::Tape.new(self).record_destroy
           end
         end

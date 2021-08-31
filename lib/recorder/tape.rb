@@ -1,9 +1,9 @@
-require 'recorder/tape/class_methods'
 require 'recorder/tape/data'
+require 'recorder/tape/record'
 
 module Recorder
   class Tape
-    extend ClassMethods
+    extend Record
 
     attr_reader :item, :data
 
