@@ -3,7 +3,7 @@ class CreateRecorderRevisions < ActiveRecord::Migration
   def change
     create_table :recorder_revisions do |t|
       t.string :item_type, null: false
-      t.integer :item_id, null: false
+      t.integer :item_id
       t.string :event, null: false
       t.jsonb :data, null: false
       t.inet :ip

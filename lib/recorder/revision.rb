@@ -15,15 +15,16 @@ class Recorder::Revision < ActiveRecord::Base
     )
   end
 
-  belongs_to :item, :polymorphic => true, :inverse_of => :revisions
+  belongs_to :item, polymorphic: true, inverse_of: :revisions
   belongs_to :user
 
-  validates :item, :presence => true
-  validates :event, :presence => true
-  validates :action_date, :presence => true
-  validates :data, :presence => true
+  #validates :item, presence: true
+  validates :item_type, presence: true
+  validates :event, presence: true
+  validates :action_date, presence: true
+  validates :data, presence: true
 
-  scope :ordered_by_created_at, -> { order(:created_at => :desc) }
+  scope :ordered_by_created_at, -> { order(created_at: :desc) }
 
   def item
     super || restore_item

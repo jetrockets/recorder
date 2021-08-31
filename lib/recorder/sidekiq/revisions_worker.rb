@@ -5,12 +5,8 @@ module Recorder
 
       sidekiq_options Recorder.config.sidekiq_options
 
-      def perform(klass, id, params)
-        Recorder::Revision.create(
-          item_type: klass,
-          item_id: id,
-          **params
-        )
+      def perform(params)
+        Recorder::Revision.create(params)
       end
     end
   end

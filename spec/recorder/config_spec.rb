@@ -39,6 +39,26 @@ module Recorder
       end
     end
 
+    describe '#async' do
+      it 'is default to false' do
+        expect(described_class.instance.async).to eq(false)
+      end
+    end
+
+    describe '#async=' do
+      it 'accepts configuration' do
+        described_class.instance.async = true
+
+        expect(described_class.instance.async).to eq(true)
+      end
+
+      it 'coerces to boolean' do
+        described_class.instance.async = 'true'
+
+        expect(described_class.instance.async).to eq(true)
+      end
+    end
+
     describe '#sidekiq_options' do
       it 'is default to `Hash` with options' do
         options = {
