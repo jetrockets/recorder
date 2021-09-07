@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'recorder/tape/data'
 require 'recorder/tape/record'
 
@@ -8,7 +10,7 @@ module Recorder
     attr_reader :item, :data
 
     def initialize(item)
-      @item = item;
+      @item = item
       @data = Data.new(item)
 
       item.instance_variable_set(:@recorder_dirty, true)
@@ -17,28 +19,22 @@ module Recorder
     def record_create
       data = data_for(:create, recorder_options)
 
-      if data.any?
-        record(event: :create, data: data)
-      end
+      record(event: :create, data: data) if data.any?
     end
 
     def record_update
       data = data_for(:update, recorder_options)
 
-      if data.any?
-        record(event: :update, data: data)
-      end
+      record(event: :update, data: data) if data.any?
     end
 
     def record_destroy
       data = data_for(:destroy, recorder_options)
 
-      if data.any?
-        record(event: :destroy, data: data)
-      end
+      record(event: :destroy, data: data) if data.any?
     end
 
-  protected
+    protected
 
     def recorder_options
       item.respond_to?(:recorder_options) ? item.recorder_options : {}

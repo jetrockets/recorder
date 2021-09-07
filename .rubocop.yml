@@ -1,0 +1,27 @@
+inherit_gem:
+  jetrockets-standard: config/gems.yml
+
+AllCops:
+  Exclude:
+    - 'bin/*'
+    - 'tmp/**/*'
+    - 'docs/**/*'
+    - 'Gemfile'
+    - 'vendor/**/*'
+    - 'gemfiles/**/*'
+  DisplayCopNames: true
+  TargetRubyVersion: 2.5
+
+Style/TrailingCommaInArrayLiteral:
+  EnforcedStyleForMultiline: no_comma
+
+Style/TrailingCommaInHashLiteral:
+  EnforcedStyleForMultiline: no_comma
+
+Layout/ParameterAlignment:
+  EnforcedStyle: with_first_parameter
+
+# See https://github.com/rubocop-hq/rubocop/issues/4222
+Lint/AmbiguousBlockAssociation:
+  Exclude:
+    - 'spec/**/*'

@@ -1,10 +1,12 @@
+# frozen_string_literal: true
+
 module Recorder
   class Changeset
     attr_reader :item, :changes
 
     def initialize(item, changes)
-      @item = item;
-      @changes = Hash[changes]
+      @item = item
+      @changes = changes.to_h
     end
 
     def keys

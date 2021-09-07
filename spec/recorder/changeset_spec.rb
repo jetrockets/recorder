@@ -1,10 +1,12 @@
-require "rails_helper"
+# frozen_string_literal: true
+
+require 'rails_helper'
 
 module Recorder
   RSpec.describe Changeset do
     describe '#initialize' do
       let(:item) { Security.new }
-      let(:changes) { Hash.new }
+      let(:changes) { {} }
 
       it 'correctly sets instance variables' do
         changeset = described_class.new(item, changes)
@@ -26,16 +28,16 @@ module Recorder
       let(:item) { Security.new }
 
       describe 'blank changes' do
-        let(:changes) { Hash.new }
+        let(:changes) { {} }
 
         it 'returns an empty `Array`' do
           changeset = described_class.new(item, changes)
-          expect(changeset.keys).to match_array(Array.new)
+          expect(changeset.keys).to match_array([])
         end
       end
 
       describe 'actual changes' do
-        let(:changes) { { :name => ['Facebook', 'Yandex'], :identifier => ['FB', 'YNDX'] } }
+        let(:changes) { {name: %w[Facebook Yandex], identifier: %w[FB YNDX]} }
 
         it 'returns keys' do
           changeset = described_class.new(item, changes)
@@ -45,7 +47,7 @@ module Recorder
     end
 
     describe '#human_attribute_name' do
-      let(:changes) { { :name => ['Facebook', 'Yandex'], :identifier => ['FB', 'YNDX'] } }
+      let(:changes) { {name: %w[Facebook Yandex], identifier: %w[FB YNDX]} }
 
       describe 'not decorated object' do
         let(:item) { Security.new }

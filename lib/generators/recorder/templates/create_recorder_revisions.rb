@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # This migration creates the `recorder_revisions` table.
 class CreateRecorderRevisions < ActiveRecord::Migration
   def change
@@ -13,6 +15,6 @@ class CreateRecorderRevisions < ActiveRecord::Migration
       t.datetime :created_at, null: false
     end
 
-    add_index :recorder_revisions, [:item_type, :item_id]
+    add_index :recorder_revisions, %i[item_type item_id]
   end
 end

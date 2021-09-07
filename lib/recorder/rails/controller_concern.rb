@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Recorder
   module Rails
     # Extensions to rails controllers. Provides convenient ways to pass certain
@@ -8,7 +10,7 @@ module Recorder
         base.before_action :set_recorder_meta
       end
 
-    protected
+      protected
 
       # Returns the user who is responsible for any changes that occur.
       # By default this calls `current_user` and returns the result.
@@ -17,6 +19,7 @@ module Recorder
       # method, e.g. `current_person`, or anything you like.
       def recorder_user_id
         return unless defined?(current_user)
+
         current_user.try!(:id)
       rescue NoMethodError
         current_user
@@ -24,10 +27,10 @@ module Recorder
 
       def recorder_info
         {
-          :user_id => self.recorder_user_id,
-          :ip => request.remote_ip,
-          :action_date => Date.current,
-          :meta => self.recorder_meta
+          user_id: recorder_user_id,
+          ip: request.remote_ip,
+          action_date: Date.current,
+          meta: recorder_meta
         }
       end
 
@@ -40,11 +43,11 @@ module Recorder
       # Tells Recorder any information from the controller you want to store
       # alongside any changes that occur.
       def set_recorder_info
-        ::Recorder.info = self.recorder_info
+        ::Recorder.info = recorder_info
       end
 
       def set_recorder_meta
-        ::Recorder.meta = self.recorder_meta
+        ::Recorder.meta = recorder_meta
       end
     end
   end

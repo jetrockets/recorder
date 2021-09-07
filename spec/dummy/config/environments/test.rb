@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
 
@@ -13,11 +15,11 @@ Rails.application.configure do
   config.eager_load = false
 
   # Configure static file server for tests with Cache-Control for performance.
-  config.serve_static_files   = true
+  config.serve_static_files = true
   config.static_cache_control = 'public, max-age=3600'
 
   # Show full error reports and disable caching.
-  config.consider_all_requests_local       = true
+  config.consider_all_requests_local = true
   config.action_controller.perform_caching = false
 
   # Raise exceptions instead of rendering exception templates.

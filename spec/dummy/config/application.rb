@@ -1,8 +1,10 @@
-require File.expand_path('../boot', __FILE__)
+# frozen_string_literal: true
+
+require File.expand_path('boot', __dir__)
 
 # Pick the frameworks you want:
-require "active_record/railtie"
-require "action_controller/railtie"
+require 'active_record/railtie'
+require 'action_controller/railtie'
 
 Bundler.require(*Rails.groups)
 require 'recorder'
@@ -25,4 +27,3 @@ module Dummy
     config.active_record.raise_in_transactional_callbacks = true
   end
 end
-

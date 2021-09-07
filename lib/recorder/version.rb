@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Recorder
   # :nodoc:
   module VERSION
@@ -6,7 +8,7 @@ module Recorder
     PATCH = 0
     PRE = nil
 
-    STRING = [MAJOR, MINOR, PATCH, PRE].compact.join(".").freeze
+    STRING = [MAJOR, MINOR, PATCH, PRE].compact.join('.').freeze
 
     def self.to_s
       STRING

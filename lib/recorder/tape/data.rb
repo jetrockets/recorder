@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Recorder
   class Tape
     class Data
@@ -15,8 +17,8 @@ module Recorder
         }
       end
 
-      def attributes_for(event, options)
-        { attributes: sanitize_attributes(item.attributes, options) }
+      def attributes_for(_event, options)
+        {attributes: sanitize_attributes(item.attributes, options)}
       end
 
       def changes_for(event, options)
@@ -26,18 +28,18 @@ module Recorder
             sanitize_attributes(item.saved_changes, options)
           end
 
-        changes.present? ? { changes: changes } : {}
+        changes.present? ? {changes: changes} : {}
       end
 
       def associations_for(event, options)
         associations = parse_associations_attributes(event, options)
 
-        associations.present? ? { associations: associations } : {}
+        associations.present? ? {associations: associations} : {}
       end
 
       private
 
-      def sanitize_attributes(attributes = {}, options)
+      def sanitize_attributes(attributes, options)
         if options[:only].present?
           only = wrap_options(options[:only])
           attributes.symbolize_keys.slice(*only)
@@ -56,11 +58,10 @@ module Recorder
       def parse_associations_attributes(event, options)
         return unless options[:associations]
 
-        options[:associations].inject({}) do |hash, (association, options)|
+        options[:associations].each_with_object({}) do |(association, options), hash|
           name, data = parse_association(event, association, options)
 
           hash[name] = data if data.any?
-          hash
         end
       end
 
@@ -70,7 +71,7 @@ module Recorder
         if reflection.present?
           if reflection.collection?
 
-          elsif object = item.send(association)
+          elsif (object = item.send(association))
             data = Recorder::Tape::Data.new(object).data_for(event, options || {})
 
             [reflection.name, data]

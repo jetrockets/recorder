@@ -1,10 +1,13 @@
+# frozen_string_literal: true
+
 require 'singleton'
 
 module Recorder
   # Global configuration options
   class Config
     include Singleton
-    attr_accessor :sidekiq_options, :ignore, :async
+    attr_accessor :sidekiq_options
+    attr_reader :ignore, :async
 
     def initialize
       # Variables which affect all threads, whose access is synchronized.
@@ -12,12 +15,12 @@ module Recorder
       @enabled = true
 
       @sidekiq_options = {
-        :queue => 'recorder',
-        :retry => 10,
-        :backtrace => true
+        queue: 'recorder',
+        retry: 10,
+        backtrace: true
       }
 
-      @ignore = Array.new
+      @ignore = []
       @async = false
     end
 

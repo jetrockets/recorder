@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # This migration adds number column to the `revisions` table.
 class AddIndexByUserIdToRecorderRevisions < ActiveRecord::Migration
   def change
