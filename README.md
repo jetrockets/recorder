@@ -20,7 +20,6 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
 
 ## Development
 
@@ -34,9 +33,9 @@ Bug reports and pull requests are welcome on GitHub at https://github.com/jetroc
 
 ## Credits
 
-![JetRockets](http://www.jetrockets.ru/jetrockets.png)
+![JetRockets](https://media.jetrockets.pro/jetrockets-white.png)
 
-Recorder is maintained by [JetRockets](http://www.jetrockets.ru).
+Recorder is maintained by [JetRockets](https://www.jetrockets.pro]).
 
 ## License
 
