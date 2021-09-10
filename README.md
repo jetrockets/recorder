@@ -20,6 +20,37 @@ Or install it yourself as:
 
 ## Usage
 
+To enable logging on a model you just need to include `Recorder::Observer` into the model and configure logging options for it:
+
+``` ruby
+class Post < ActiveRecord::Base
+  include ::Recorder::Observer
+
+  recorder only: %i[title tags],
+    associations: {
+      author: { only: %i[full_name] },
+      category: { only: %i[name slug] }
+    }
+end
+```
+
+Recorder supports the following options:
+
+ * `ignore: [array]` - attributes that are ignored on logging;
+ * `only: [array]` - only these attributes are logged, other attributes are ingored;
+ * `associations: {hash} (hash)` - allows to set what associations will be logged alongside with the model. For each association you can also set ignore and only options;
+ * `async: bool` - a logging strategy (true - asynchronous, false - synchronous).
+
+There are two strategies for logging: synchronous and asynchronous. When the synchronous strategy is used, a revision record is saved immediately after a model is saved, and the async strategy moves creating of revision records to [Sidekiq](https://github.com/mperham/sidekiq).
+
+To enable storing of such data as user_id and ip, you need to include `Recorder::Rails::ControllerConcern` to `ApplicationController`. Recorder uses [request_store](https://github.com/steveklabnik/request_store) to safely store these data on a thread level.
+
+``` ruby
+  class ApplicationController < ActionController::Base
+    include Recorder::Rails::ControllerConcern
+    ...
+  end
+```
 
 ## Development
 
