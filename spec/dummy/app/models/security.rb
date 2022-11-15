@@ -1,5 +1,5 @@
 # frozen_string_literal: true
 
-class Security < ActiveRecord::Base
+class Security < ApplicationRecord
   include ::Recorder::Observer
 end

@@ -82,11 +82,12 @@ module Recorder
 
       klass = "#{klass}Changeset"
 
-      klass = begin
-        klass.constantize
-      rescue
-        nil
-      end
+      klass =
+        begin
+          klass.constantize
+        rescue
+          nil
+        end
       klass.present? ? klass : Recorder::Changeset
     end
   end

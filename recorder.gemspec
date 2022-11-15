@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.name = 'recorder'
   spec.version = Recorder::VERSION
   spec.authors = ['Igor Alexandrov']
-  spec.email = ['igor.alexandrov@jetrockets.ru']
+  spec.email = ['igor.alexandrov@jetrockets.com']
 
   spec.summary = 'Rails model auditor'
   spec.description = 'Recorder tracks changes of your Rails models'
@@ -20,17 +20,18 @@ Gem::Specification.new do |spec|
   spec.executables = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ['lib']
 
-  spec.add_dependency 'activerecord', '>= 5.0'
-  spec.add_dependency 'activesupport', '>= 5.0'
+  spec.add_dependency 'activerecord', '~> 6.1'
+  spec.add_dependency 'activesupport', '~> 6.1'
   spec.add_dependency 'pg'
   spec.add_dependency 'request_store'
 
   spec.add_development_dependency 'bundler', '>= 2.0'
-  spec.add_development_dependency 'database_cleaner'
+  # spec.add_development_dependency 'database_cleaner'
   spec.add_development_dependency 'generator_spec'
   spec.add_development_dependency 'jetrockets-standard'
   spec.add_development_dependency 'rake', '~> 13.0'
-  spec.add_development_dependency 'rspec-rails', '~> 3.5'
-  spec.add_development_dependency 'timecop', '~> 0.8.1'
-  spec.add_development_dependency 'yard'
+  spec.add_development_dependency 'rspec-rails'
+  # spec.add_development_dependency 'timecop', '~> 0.8.1'
+  # spec.add_development_dependency 'yard'
+  spec.add_development_dependency 'rails-dummy'
 end

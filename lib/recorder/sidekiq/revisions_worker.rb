@@ -7,7 +7,7 @@ module Recorder
 
       sidekiq_options Recorder.config.sidekiq_options
 
-      def perform(params)
+      def perform(**params)
         Recorder::Revision.create(params)
       end
     end

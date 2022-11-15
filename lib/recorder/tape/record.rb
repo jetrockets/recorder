@@ -31,7 +31,7 @@ module Recorder
       def record_async(params, options)
         Recorder::Sidekiq::RevisionsWorker.perform_in(
           options[:delay] || 2.seconds,
-          params
+          **params
         )
       end
     end
