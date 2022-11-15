@@ -7,12 +7,10 @@ require 'generator_spec'
 require File.expand_path('../../lib/generators/recorder/install_generator', __dir__)
 
 describe Recorder::InstallGenerator, type: :generator do
-  destination File.expand_path('tmp', __dir__)
-
-  after(:all) { prepare_destination }
+  destination File.expand_path('../../../tmp', __FILE__)
 
   describe 'no options' do
-    before(:all) do
+    before do
       prepare_destination
       run_generator
     end
@@ -25,7 +23,7 @@ describe Recorder::InstallGenerator, type: :generator do
               contains 'class CreateRecorderRevisions'
               contains 'def change'
               contains 'create_table :recorder_revisions'
-              contains 'add_index :recorder_revisions, [:item_type, :item_id]'
+              contains 'add_index :recorder_revisions, %i[item_type item_id]'
             end
           end
         end
@@ -34,7 +32,7 @@ describe Recorder::InstallGenerator, type: :generator do
   end
 
   describe '`--with_number_column` option' do
-    before(:all) do
+    before do
       prepare_destination
       run_generator %w[--with_number_column]
     end
@@ -47,7 +45,7 @@ describe Recorder::InstallGenerator, type: :generator do
               contains 'class CreateRecorderRevisions'
               contains 'def change'
               contains 'create_table :recorder_revisions'
-              contains 'add_index :recorder_revisions, [:item_type, :item_id]'
+              contains 'add_index :recorder_revisions, %i[item_type item_id]'
             end
           end
         end
@@ -76,7 +74,7 @@ describe Recorder::InstallGenerator, type: :generator do
   end
 
   describe '`--with_index_by_user_id` option' do
-    before(:all) do
+    before do
       prepare_destination
       run_generator %w[--with_index_by_user_id]
     end
@@ -89,7 +87,7 @@ describe Recorder::InstallGenerator, type: :generator do
               contains 'class CreateRecorderRevisions'
               contains 'def change'
               contains 'create_table :recorder_revisions'
-              contains 'add_index :recorder_revisions, [:item_type, :item_id]'
+              contains 'add_index :recorder_revisions, %i[item_type item_id]'
             end
           end
         end

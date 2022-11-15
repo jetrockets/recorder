@@ -10,18 +10,7 @@ module Recorder
     attr_reader :ignore, :async
 
     def initialize
-      # Variables which affect all threads, whose access is synchronized.
-      @mutex = Mutex.new
-      @enabled = true
-
-      @sidekiq_options = {
-        queue: 'recorder',
-        retry: 10,
-        backtrace: true
-      }
-
-      @ignore = []
-      @async = false
+      reset
     end
 
     def ignore=(value)
@@ -39,6 +28,20 @@ module Recorder
 
     def enabled=(enable)
       @mutex.synchronize { @enabled = enable }
+    end
+
+    def reset
+      @mutex = Mutex.new
+      @enabled = true
+
+      @sidekiq_options = {
+        queue: 'recorder',
+        retry: 10,
+        backtrace: true
+      }
+
+      @ignore = []
+      @async = false
     end
   end
 end

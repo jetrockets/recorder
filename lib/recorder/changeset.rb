@@ -5,6 +5,8 @@ module Recorder
     attr_reader :item, :changes
 
     def initialize(item, changes)
+      raise ArgumentError unless changes&.respond_to?(:to_h)
+
       @item = item
       @changes = changes.to_h
     end
