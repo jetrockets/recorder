@@ -61,7 +61,7 @@ module Recorder
         options[:associations].each_with_object({}) do |(association, options), hash|
           name, data = parse_association(event, association, options)
 
-          hash[name] = data if data.any?
+          hash[name] = data if data&.any?
         end
       end
 
