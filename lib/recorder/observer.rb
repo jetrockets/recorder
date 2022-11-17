@@ -21,11 +21,13 @@ module Recorder
       recorder_dirty? && Recorder.store.recorder_enabled?
     end
 
-    module ClassMethods
+    class_methods do
+      define_method :recorder_options do
+        @recorder_options ||= {}
+      end
+
       def recorder(options = {})
-        define_method :recorder_options do
-          options
-        end
+        @recorder_options = options
 
         after_create do
           Recorder::Tape.new(self).record_create if recorder_record?

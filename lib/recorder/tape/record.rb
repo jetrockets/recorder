@@ -29,9 +29,12 @@ module Recorder
       end
 
       def record_async(params, options)
+        params[:data] = params[:data].to_json
+        params[:action_date] = params[:action_date].to_s
+
         Recorder::Sidekiq::RevisionsWorker.perform_in(
           options[:delay] || 2.seconds,
-          **params
+          params.stringify_keys
         )
       end
     end

@@ -18,6 +18,7 @@ module Recorder
       )
     end
 
+    belongs_to :item, polymorphic: true, inverse_of: :revisions
     belongs_to :user
 
     validates :item_type, presence: true
@@ -27,20 +28,20 @@ module Recorder
 
     scope :ordered_by_created_at, -> { order(created_at: :desc) }
 
-    def item
-      return @item if defined?(@item)
-      return if item_id.nil?
+    # def item
+    #   return @item if defined?(@item)
+    #   return if item_id.nil?
 
-      @item = item_type.classify.constantize.new(data['attributes'])
+    #   @item = item_type.classify.constantize.new(data['attributes'])
 
-      if data['associations'].present?
-        data['associations'].each do |name, association|
-          @item.send("build_#{name}", association['attributes'])
-        end
-      end
+    #   if data['associations'].present?
+    #     data['associations'].each do |name, association|
+    #       @item.send("build_#{name}", association['attributes'])
+    #     end
+    #   end
 
-      @item
-    end
+    #   @item
+    # end
 
     # Get changeset for an item
     # @return [Recorder::Changeset]

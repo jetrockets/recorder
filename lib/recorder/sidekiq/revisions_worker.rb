@@ -7,7 +7,8 @@ module Recorder
 
       sidekiq_options Recorder.config.sidekiq_options
 
-      def perform(**params)
+      def perform(params)
+        params['data'] = JSON.parse(params['data'])
         Recorder::Revision.create(params)
       end
     end

@@ -19,19 +19,19 @@ module Recorder
     def record_create
       data = data_for(:create, recorder_options)
 
-      record(event: :create, data: data) if data.any?
+      record(event: 'create', data: data) if data.any?
     end
 
     def record_update
       data = data_for(:update, recorder_options)
 
-      record(event: :update, data: data) if data.any?
+      record(event: 'update', data: data) if data.any?
     end
 
     def record_destroy
       data = data_for(:destroy, recorder_options)
 
-      record(event: :destroy, data: data) if data.any?
+      record(event: 'destroy', data: data) if data.any?
     end
 
     protected
@@ -51,7 +51,7 @@ module Recorder
           item_id: item.id,
           **params
         },
-        item.recorder_options
+        recorder_options
       )
     end
   end
