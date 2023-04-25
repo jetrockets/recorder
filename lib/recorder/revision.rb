@@ -76,7 +76,7 @@ module Recorder
     # If `#recorder_changeset_class` method is not defined, then class name is generated as "#{class}Changeset"
     # @api private
     def changeset_class(object)
-      klass = defined?(Draper) && object.decorated? ? object.source.class : object.class
+      klass = (defined?(Draper) && object.decorated?) ? object.source.class : object.class
       klass = klass.base_class
 
       return klass.send(:recorder_changeset_class) if klass.respond_to?(:recorder_changeset_class)

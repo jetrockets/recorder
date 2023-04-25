@@ -10,11 +10,17 @@ module Recorder
       end
 
       def data_for(event, options = {})
-        {
+        data = {
           **attributes_for(event, options),
           **changes_for(event, options),
           **associations_for(event, options)
         }
+
+        case event.to_sym
+        when :update
+          data[:changes] ? data : {}
+        else data
+        end
       end
 
       def attributes_for(_event, options)
@@ -22,11 +28,7 @@ module Recorder
       end
 
       def changes_for(event, options)
-        changes =
-          case event.to_sym
-          when :update
-            sanitize_attributes(item.saved_changes, options)
-          end
+        changes = sanitize_attributes(item.saved_changes, options)
 
         changes.present? ? {changes: changes} : {}
       end

@@ -2,4 +2,6 @@
 
 class Security < ApplicationRecord
   include ::Recorder::Observer
+
+  self.inheritance_column = nil
 end
