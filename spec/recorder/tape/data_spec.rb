@@ -37,7 +37,7 @@ RSpec.describe Recorder::Tape::Data do
         it 'returns data for :update event' do
           expect(data_for).to eq(
             attributes: {type: 'type', name: 'name'},
-            changes: { name: ['security', 'name'] }
+            changes: {name: ['security', 'name']}
           )
         end
       end
@@ -53,11 +53,11 @@ RSpec.describe Recorder::Tape::Data do
 
         before do
           allow(subject).to receive(:associations_for).and_return(
-            { 
+            {
               associations: {
                 guard: {
-                  attributes: { type: 'guard', name: 'guard' },
-                  changes: { type: [nil, 'guard'] } 
+                  attributes: {type: 'guard', name: 'guard'},
+                  changes: {type: [nil, 'guard']}
                 }
               }
             }
@@ -67,10 +67,10 @@ RSpec.describe Recorder::Tape::Data do
         it 'returns data for :update event' do
           expect(data_for).to eq({
             attributes: {type: 'type', name: 'name'},
-            associations: { 
+            associations: {
               guard: {
-                attributes: { type: 'guard', name: 'guard' },
-                changes: { type: [nil, 'guard'] } 
+                attributes: {type: 'guard', name: 'guard'},
+                changes: {type: [nil, 'guard']}
               }
             }
           })
@@ -82,9 +82,9 @@ RSpec.describe Recorder::Tape::Data do
 
         before do
           allow(subject).to receive(:associations_for).and_return(
-            { 
+            {
               associations: {
-                guard: { attributes: { type: 'guard', name: 'guard' } }
+                guard: {attributes: {type: 'guard', name: 'guard'}}
               }
             }
           )
