@@ -10,7 +10,8 @@ RSpec.describe Recorder::Tape::Data do
   end
 
   describe '#data_for' do
-    let(:data_for) { subject.data_for(event, {only: %i[type name]}) }
+    let(:data_for) { subject.data_for(event, options) }
+    let(:options) { {only: %i[type name]} }
 
     context 'when event is :create' do
       let(:event) { :create }
@@ -25,18 +26,70 @@ RSpec.describe Recorder::Tape::Data do
 
       context 'and the item has changed' do
         before do
-          allow(item).to receive(:saved_changes).and_return({name: 'security', identifier: 'id'})
+          allow(item).to receive(:saved_changes).and_return(
+            {
+              name: ['security', 'name'],
+              identifier: ['id', 'identifier']
+            }
+          )
         end
 
         it 'returns data for :update event' do
           expect(data_for).to eq(
             attributes: {type: 'type', name: 'name'},
-            changes: {name: 'security'}
+            changes: { name: ['security', 'name'] }
           )
         end
       end
 
       context 'and the item has not changed' do
+        it 'returns an empty hash' do
+          expect(data_for).to eq({})
+        end
+      end
+
+      context 'and item associations have changed' do
+        let(:options) { {only: %i[type name], associations: %i[guard]} }
+
+        before do
+          allow(subject).to receive(:associations_for).and_return(
+            { 
+              associations: {
+                guard: {
+                  attributes: { type: 'guard', name: 'guard' },
+                  changes: { type: [nil, 'guard'] } 
+                }
+              }
+            }
+          )
+        end
+
+        it 'returns data for :update event' do
+          expect(data_for).to eq({
+            attributes: {type: 'type', name: 'name'},
+            associations: { 
+              guard: {
+                attributes: { type: 'guard', name: 'guard' },
+                changes: { type: [nil, 'guard'] } 
+              }
+            }
+          })
+        end
+      end
+
+      context 'and item associations have not changed' do
+        let(:options) { {only: %i[type name], associations: %i[guard]} }
+
+        before do
+          allow(subject).to receive(:associations_for).and_return(
+            { 
+              associations: {
+                guard: { attributes: { type: 'guard', name: 'guard' } }
+              }
+            }
+          )
+        end
+
         it 'returns an empty hash' do
           expect(data_for).to eq({})
         end
@@ -107,14 +160,19 @@ RSpec.describe Recorder::Tape::Data do
 
     context 'when the item has changed' do
       before do
-        allow(item).to receive(:saved_changes).and_return({name: 'security', identifier: 'id'})
+        allow(item).to receive(:saved_changes).and_return(
+          {
+            name: ['security', 'name'],
+            identifier: ['id', 'identifier']
+          }
+        )
       end
 
       context 'and options[:only] is present' do
         let(:options) { {only: %i[type name invalid]} }
 
         it 'returns only attributes included in :only' do
-          expect(changes_for).to eq(changes: {name: 'security'})
+          expect(changes_for).to eq(changes: {name: ['security', 'name']})
         end
       end
 
@@ -122,7 +180,7 @@ RSpec.describe Recorder::Tape::Data do
         let(:options) { {ignore: %i[type name invalid]} }
 
         it 'returns all attributes expect the ones that are included in :ignore' do
-          expect(changes_for).to eq(changes: {identifier: 'id'})
+          expect(changes_for).to eq(changes: {identifier: ['id', 'identifier']})
         end
       end
 
@@ -130,7 +188,12 @@ RSpec.describe Recorder::Tape::Data do
         let(:options) { {} }
 
         it 'returns all attributes' do
-          expect(changes_for).to eq(changes: {name: 'security', identifier: 'id'})
+          expect(changes_for).to eq(
+            changes: {
+              name: ['security', 'name'],
+              identifier: ['id', 'identifier']
+            }
+          )
         end
       end
     end

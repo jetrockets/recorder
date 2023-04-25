@@ -16,11 +16,7 @@ module Recorder
           **associations_for(event, options)
         }
 
-        case event.to_sym
-        when :update
-          data[:changes] ? data : {}
-        else data
-        end
+        record_changed?(data, event) ? data : {}
       end
 
       def attributes_for(_event, options)
@@ -79,6 +75,16 @@ module Recorder
             [reflection.name, data]
           end
         end
+      end
+
+      def record_changed?(data, event)
+        event.to_sym != :update || data[:changes] || associations_changed?(data)
+      end
+
+      def associations_changed?(data)
+        return if data[:associations].nil?
+
+        data[:associations].any? { |name, association| association[:changes] }
       end
     end
   end
