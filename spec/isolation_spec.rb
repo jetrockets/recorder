@@ -1,17 +1,14 @@
 # frozen_string_literal: true
 
-# This file guards the suite itself rather than any one class, so there is no
-# class to hand to `describe`.
+# No single class under test here.
 # rubocop:disable RSpec/DescribeClass
 
 require 'rails_helper'
 
-# Guards the isolation set up in spec/rails_helper.rb. Remove any part of that
-# `config.before` block, or the transactional fixtures, and this file fails.
+# Guards the isolation configured in spec/rails_helper.rb.
 #
-# Both examples do the same thing: assert the world is clean, then dirty every
-# piece of it. Whichever one RSpec happens to run second is the one that catches
-# a leak, so this holds under `config.order = :random` without pinning an order.
+# Both examples assert a clean slate, then dirty it. Whichever runs second
+# catches a leak, so this holds under `config.order = :random`.
 RSpec.describe 'spec suite isolation' do
   %w[first second].each do |pass|
     it "starts from a clean slate (#{pass} pass)" do

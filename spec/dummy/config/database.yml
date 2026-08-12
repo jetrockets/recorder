@@ -1,12 +1,7 @@
 # frozen_string_literal: true
 
-# Database used by the dummy app that the specs run against.
-#
-# This file is committed on purpose: without it a fresh clone has nothing to
-# connect with and the whole suite fails to boot. Every value can be overridden
-# from the environment, so local setups and CI can point at their own Postgres
-# without editing (or accidentally committing changes to) this file. Setting
-# DATABASE_URL also works -- Rails merges it over whatever is configured here.
+# Database for the dummy app the specs run against.
+# Every value is overridable from ENV; DATABASE_URL works too.
 
 default: &default
   adapter: postgresql

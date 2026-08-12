@@ -4,12 +4,6 @@ IFS=$'\n\t'
 
 bundle install
 
-# The specs boot the dummy app in spec/dummy, so its database has to exist
-# before RSpec runs. spec/rails_helper.rb applies the migrations itself, so
-# creating the database is all that is needed here. db:create is idempotent.
-#
-# RAILS_ENV=test is required: the dummy app only ever runs under test, so that
-# is the only environment database.yml defines. `bundle exec` matters too --
-# spec/dummy/config/boot.rb defaults BUNDLE_GEMFILE to a spec/dummy/Gemfile that
-# does not exist, and only an already-set BUNDLE_GEMFILE stops it from doing so.
+# spec/rails_helper.rb runs the migrations, so the database only has to exist.
+# test is the only environment spec/dummy/config/database.yml defines.
 RAILS_ENV=test bundle exec rake -f spec/dummy/Rakefile db:create

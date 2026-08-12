@@ -1,13 +1,7 @@
 # frozen_string_literal: true
 
 # Mirrors lib/generators/recorder/templates/create_recorder_revisions.rb.
-#
-# Keep the two in sync: this is the table the specs exercise, and if it drifts
-# from what the generator installs, the suite stops testing what users run.
-#
-# The one intentional difference is the versioned `[6.1]` below. The template
-# still subclasses a bare ActiveRecord::Migration, which has been unsupported
-# since Rails 5 -- fixing that is a separate change.
+# Keep the two in sync, or the specs stop testing what the generator installs.
 class CreateRecorderRevisions < ActiveRecord::Migration[6.1]
   def change
     create_table :recorder_revisions do |t|

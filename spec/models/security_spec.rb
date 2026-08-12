@@ -2,12 +2,6 @@
 
 require 'rails_helper'
 
-# The first end-to-end coverage the gem has had: a real model, real callbacks,
-# real rows. Everything before this stubbed the pieces in isolation, so nothing
-# proved that including Recorder::Observer actually records anything.
-#
-# Deliberately a smoke test rather than exhaustive observer coverage -- it is
-# here to show the harness can prove things, not to pin down every option.
 RSpec.describe Security do
   let(:user) { User.create!(name: 'Igor') }
 
@@ -38,8 +32,7 @@ RSpec.describe Security do
       revision = security.revisions.order(:id).last
       aggregate_failures do
         expect(revision.event).to eq('update')
-        # `include` rather than `eq`: Recorder.config.ignore is empty by
-        # default, so updated_at is legitimately part of the changeset too.
+        # updated_at is in the changeset too: config.ignore is empty by default.
         expect(revision.data['changes']).to include('name' => %w[Facebook Meta])
       end
     end
