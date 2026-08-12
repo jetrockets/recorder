@@ -12,7 +12,6 @@ RSpec.configure do |config|
   # Recorder holds state in three places that outlive an example: database rows,
   # the Config singleton, and the RequestStore that Store memoises. A leaked
   # `recorder_disabled!` makes later examples record nothing and pass anyway.
-  # spec/isolation_spec.rb guards all three.
 
   # RailsExampleGroup is included explicitly: rspec-rails' global FixtureSupport
   # include is deprecated (rspec/rspec-rails#1355), and without one of the two
