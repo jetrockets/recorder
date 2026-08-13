@@ -4,7 +4,7 @@ require 'spec_helper'
 
 RSpec.describe Recorder::Config do
   before do
-    Recorder::Config.instance.reset
+    described_class.instance.reset
   end
 
   describe '.instance' do
@@ -46,7 +46,7 @@ RSpec.describe Recorder::Config do
 
   describe '#async' do
     it 'is default to false' do
-      expect(described_class.instance.async).to eq(false)
+      expect(described_class.instance.async).to be(false)
     end
   end
 
@@ -54,13 +54,13 @@ RSpec.describe Recorder::Config do
     it 'accepts configuration' do
       described_class.instance.async = true
 
-      expect(described_class.instance.async).to eq(true)
+      expect(described_class.instance.async).to be(true)
     end
 
     it 'coerces to boolean' do
       described_class.instance.async = 'true'
 
-      expect(described_class.instance.async).to eq(true)
+      expect(described_class.instance.async).to be(true)
     end
   end
 

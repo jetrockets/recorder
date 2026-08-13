@@ -32,7 +32,7 @@ module Recorder
 
         it 'returns an empty `Array`' do
           changeset = described_class.new(item, changes)
-          expect(changeset.keys).to match_array([])
+          expect(changeset.keys).to be_empty
         end
       end
 

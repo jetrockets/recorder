@@ -3,14 +3,14 @@
 require 'rails_helper'
 
 RSpec.describe Recorder::Tape::Data do
-  subject { described_class.new(item) }
+  subject(:data) { described_class.new(item) }
 
   let(:item) do
     Security.new(type: 'type', name: 'name', identifier: 'identifier')
   end
 
   describe '#data_for' do
-    let(:data_for) { subject.data_for(event, options) }
+    let(:data_for) { data.data_for(event, options) }
     let(:options) { {only: %i[type name]} }
 
     context 'when event is :create' do
@@ -49,19 +49,12 @@ RSpec.describe Recorder::Tape::Data do
       end
 
       context 'and item associations have changed' do
-        let(:options) { {only: %i[type name], associations: %i[guard]} }
+        let(:options) { {only: %i[type name], associations: {guard: {only: %i[type name]}}} }
+        let(:guard) { Security.create!(type: 'guard', name: 'guard', identifier: 'guard') }
 
         before do
-          allow(subject).to receive(:associations_for).and_return(
-            {
-              associations: {
-                guard: {
-                  attributes: {type: 'guard', name: 'guard'},
-                  changes: {type: [nil, 'guard']}
-                }
-              }
-            }
-          )
+          item.guard = guard
+          guard.update!(name: 'guardian')
         end
 
         it 'returns data for :update event' do
@@ -69,8 +62,8 @@ RSpec.describe Recorder::Tape::Data do
             attributes: {type: 'type', name: 'name'},
             associations: {
               guard: {
-                attributes: {type: 'guard', name: 'guard'},
-                changes: {type: [nil, 'guard']}
+                attributes: {type: 'guard', name: 'guardian'},
+                changes: {name: %w[guard guardian]}
               }
             }
           })
@@ -78,17 +71,12 @@ RSpec.describe Recorder::Tape::Data do
       end
 
       context 'and item associations have not changed' do
-        let(:options) { {only: %i[type name], associations: %i[guard]} }
+        let(:options) { {only: %i[type name], associations: {guard: {only: %i[type name]}}} }
+        let(:guard) { Security.create!(type: 'guard', name: 'guard', identifier: 'guard') }
 
-        before do
-          allow(subject).to receive(:associations_for).and_return(
-            {
-              associations: {
-                guard: {attributes: {type: 'guard', name: 'guard'}}
-              }
-            }
-          )
-        end
+        # reload clears the saved_changes left by create!, which is what
+        # #changes_for reads. Without it the guard counts as changed.
+        before { item.guard = guard.reload }
 
         it 'returns an empty hash' do
           expect(data_for).to eq({})
@@ -106,7 +94,7 @@ RSpec.describe Recorder::Tape::Data do
   end
 
   describe '#attributes_for' do
-    let(:attributes_for) { subject.attributes_for(:create, options) }
+    let(:attributes_for) { data.attributes_for(:create, options) }
 
     context 'when options[:only] is present' do
       let(:options) { {only: %i[type name invalid]} }
@@ -129,7 +117,8 @@ RSpec.describe Recorder::Tape::Data do
             settle_days: 3,
             pricing_factor: 1.0,
             created_at: nil,
-            updated_at: nil
+            updated_at: nil,
+            guard_id: nil
           }
         )
       end
@@ -148,7 +137,8 @@ RSpec.describe Recorder::Tape::Data do
             settle_days: 3,
             pricing_factor: 1.0,
             created_at: nil,
-            updated_at: nil
+            updated_at: nil,
+            guard_id: nil
           }
         )
       end
@@ -156,7 +146,7 @@ RSpec.describe Recorder::Tape::Data do
   end
 
   describe '#changes_for' do
-    let(:changes_for) { subject.changes_for(:update, options) }
+    let(:changes_for) { data.changes_for(:update, options) }
 
     context 'when the item has changed' do
       before do
@@ -208,7 +198,7 @@ RSpec.describe Recorder::Tape::Data do
   end
 
   describe '#associations_for' do
-    let(:associations_for) { subject.associations_for(:create, options) }
+    let(:associations_for) { data.associations_for(:create, options) }
 
     context 'when options[:associations] is blank' do
       let(:options) { {} }

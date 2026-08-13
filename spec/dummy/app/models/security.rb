@@ -5,5 +5,8 @@ class Security < ApplicationRecord
 
   self.inheritance_column = nil
 
+  # Exercises the `associations:` recording option.
+  belongs_to :guard, class_name: 'Security', optional: true
+
   recorder
 end
