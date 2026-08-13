@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2026_08_12_000002) do
+ActiveRecord::Schema.define(version: 2026_08_13_000001) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -36,6 +36,7 @@ ActiveRecord::Schema.define(version: 2026_08_12_000002) do
     t.decimal "pricing_factor", precision: 10, scale: 2, default: "1.0", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "guard_id"
   end
 
   create_table "users", force: :cascade do |t|
