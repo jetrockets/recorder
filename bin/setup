@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 IFS=$'\n\t'
-set -vx
 
 bundle install
 
-# Do any other automated setup that you need to do here
+# spec/rails_helper.rb runs the migrations, so the database only has to exist.
+# test is the only environment spec/dummy/config/database.yml defines.
+RAILS_ENV=test bundle exec rake -f spec/dummy/Rakefile db:create

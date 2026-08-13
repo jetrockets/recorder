@@ -1,0 +1,17 @@
+# frozen_string_literal: true
+
+# Database for the dummy app the specs run against.
+# Every value is overridable from ENV; DATABASE_URL works too.
+
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  host: <%= ENV.fetch('RECORDER_DB_HOST', 'localhost') %>
+  port: <%= ENV.fetch('RECORDER_DB_PORT', 5432) %>
+  username: <%= ENV.fetch('RECORDER_DB_USERNAME', 'postgres') %>
+  password: <%= ENV.fetch('RECORDER_DB_PASSWORD', 'postgres') %>
+  pool: 5
+
+test:
+  <<: *default
+  database: <%= ENV.fetch('RECORDER_DB_NAME', 'recorder_test') %>
