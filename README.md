@@ -92,9 +92,9 @@ Bug reports and pull requests are welcome on GitHub at https://github.com/jetroc
 
 ## Credits
 
-![JetRockets](https://media.jetrockets.pro/jetrockets-white.png)
+![JetRockets](https://media.jetrockets.com/jetrockets-white.png)
 
-Recorder is maintained by [JetRockets](https://www.jetrockets.pro).
+Recorder is maintained by [JetRockets](https://www.jetrockets.com).
 
 ## License
 
