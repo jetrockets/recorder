@@ -1,6 +1,8 @@
 /.bundle/
 /.yardoc
 /Gemfile.lock
+# A lockfile records one Ruby's resolution, and the CI matrix spans several.
+/gemfiles/*.gemfile.lock
 /_yardoc/
 /coverage/
 /doc/
