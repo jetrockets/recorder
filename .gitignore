@@ -9,6 +9,7 @@
 /tmp/
 
 /spec/dummy/log/*
+/spec/dummy/tmp/
 
 # Ignore vim swap files
 *.swp
