@@ -2,6 +2,12 @@
 
 Recorder tracks changes of your Rails models
 
+## Requirements
+
+- Ruby >= 3.0, < 3.4
+- Rails 6.1
+- PostgreSQL — revisions are stored in `jsonb` and `inet` columns
+
 ## Installation
 
 Add this line to your application's Gemfile:
@@ -14,9 +20,20 @@ And then execute:
 
     $ bundle
 
-Or install it yourself as:
+Generate the migration for the `recorder_revisions` table:
 
-    $ gem install recorder
+    $ rails generate recorder:install
+
+The generator writes the migration but does not run it. Run it yourself:
+
+    $ rails db:migrate
+
+The generator accepts these options:
+
+- `--with_number_column` — adds a `number` column holding a per-item revision
+  counter, maintained by a database trigger;
+- `--with_index_by_user_id` — adds an index on `user_id`;
+- `--with_partitions` — partitions the `recorder_revisions` table.
 
 ## Usage
 
@@ -52,6 +69,17 @@ To enable storing of such data as user_id and ip, you need to include `Recorder:
   end
 ```
 
+## Known issues
+
+The gem is under active maintenance and these defects are known as of 1.2.3:
+
+- The per-model options above (`ignore:`, `only:`, `associations:`, `async:`)
+  are not applied — every model records a full attribute snapshot regardless of
+  what is passed to `recorder`.
+- The migrations written by `rails generate recorder:install` do not run as
+  generated, and `--with_partitions` fails during generation.
+- `Recorder.enabled=` does not switch recording off.
+
 ## Development
 
 After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
@@ -64,9 +92,9 @@ Bug reports and pull requests are welcome on GitHub at https://github.com/jetroc
 
 ## Credits
 
-![JetRockets](https://media.jetrockets.pro/jetrockets-white.png)
+![JetRockets](https://media.jetrockets.com/jetrockets-white.png)
 
-Recorder is maintained by [JetRockets](https://www.jetrockets.pro]).
+Recorder is maintained by [JetRockets](https://www.jetrockets.com).
 
 ## License
 

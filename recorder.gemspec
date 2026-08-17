@@ -15,9 +15,16 @@ Gem::Specification.new do |spec|
   spec.homepage = 'https://github.com/jetrockets/recorder'
   spec.license = 'MIT'
 
-  spec.files = `git ls-files -z`.split("\x0").reject { |f| f.match(%r{^(test|spec|features)/}) }
-  spec.bindir = 'exe'
-  spec.executables = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
+  spec.metadata = {
+    'source_code_uri' => spec.homepage,
+    'changelog_uri' => "#{spec.homepage}/blob/master/CHANGELOG.md",
+    'bug_tracker_uri' => "#{spec.homepage}/issues",
+    'rubygems_mfa_required' => 'true'
+  }
+
+  # Only what a host app loads. Repo scaffolding — CI config, Rakefile, bin/,
+  # dotfiles — is development-only and stays out of the released gem.
+  spec.files = Dir['lib/**/*', 'CHANGELOG.md', 'LICENSE.txt', 'README.md'].select { |f| File.file?(f) }
   spec.require_paths = ['lib']
 
   spec.required_ruby_version = ['>= 3.0', '< 3.4']
@@ -28,11 +35,8 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'request_store'
 
   spec.add_development_dependency 'bundler', '>= 2.0'
-  # spec.add_development_dependency 'database_cleaner'
   spec.add_development_dependency 'generator_spec'
   spec.add_development_dependency 'jetrockets-standard'
   spec.add_development_dependency 'rake', '~> 13.0'
   spec.add_development_dependency 'rspec-rails'
-  # spec.add_development_dependency 'timecop', '~> 0.8.1'
-  # spec.add_development_dependency 'yard'
 end
