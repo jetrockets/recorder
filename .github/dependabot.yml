@@ -1,0 +1,18 @@
+version: 2
+
+# `open-pull-requests-limit: 0` turns off routine version bumps. Dependabot
+# still opens pull requests for dependencies with a published security
+# advisory, as long as Dependabot alerts and security updates are enabled in
+# the repository settings.
+updates:
+  - package-ecosystem: bundler
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
