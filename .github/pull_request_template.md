@@ -29,6 +29,6 @@ $ bundle exec rubocop
 
 ## Checklist
 
-- [ ] Specs cover the new behaviour, and the suite passes locally
+- [ ] Specs cover the new behaviour
 - [ ] README and other docs are updated where the behaviour changed
 - [ ] `Recorder::VERSION` is left alone — releases are cut separately
