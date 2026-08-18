@@ -53,12 +53,24 @@ end
 
 Recorder supports the following options:
 
- * `ignore: [array]` - attributes that are ignored on logging;
- * `only: [array]` - only these attributes are logged, other attributes are ingored;
+ * `ignore: [array]` - attributes that are ignored on logging. Composes with the
+   global `Recorder.config.ignore`, so a per-model list can only ever narrow what
+   is recorded, never widen it;
+ * `only: [array]` - only these attributes are logged, other attributes are ignored.
+   An explicit allowlist: it wins outright, and is not narrowed further by the
+   global `ignore`;
  * `associations: {hash} (hash)` - allows to set what associations will be logged alongside with the model. For each association you can also set ignore and only options;
  * `async: bool` - a logging strategy (true - asynchronous, false - synchronous).
 
+Options are inherited by STI subclasses. A subclass that declares its own
+`recorder` replaces the parent's options rather than merging with them.
+
 There are two strategies for logging: synchronous and asynchronous. When the synchronous strategy is used, a revision record is saved immediately after a model is saved, and the async strategy moves creating of revision records to [Sidekiq](https://github.com/mperham/sidekiq).
+
+Sidekiq is an optional dependency: it is not installed with this gem. Asking for
+`async: true` — on a model or through `Recorder.config.async` — without Sidekiq
+loaded raises `Recorder::SidekiqNotAvailable` at declaration time, rather than
+failing on the first save.
 
 To enable storing of such data as user_id and ip, you need to include `Recorder::Rails::ControllerConcern` to `ApplicationController`. Recorder uses [request_store](https://github.com/steveklabnik/request_store) to safely store these data on a thread level.
 
@@ -71,14 +83,14 @@ To enable storing of such data as user_id and ip, you need to include `Recorder:
 
 ## Known issues
 
-The gem is under active maintenance and these defects are known as of 1.2.3:
+The gem is under active maintenance and these defects are known:
 
-- The per-model options above (`ignore:`, `only:`, `associations:`, `async:`)
-  are not applied — every model records a full attribute snapshot regardless of
-  what is passed to `recorder`.
+- `has_many` associations listed in `associations:` record nothing. Only
+  `belongs_to` and `has_one` are captured.
 - The migrations written by `rails generate recorder:install` do not run as
   generated, and `--with_partitions` fails during generation.
-- `Recorder.enabled=` does not switch recording off.
+- `Recorder.enabled=` does not switch recording off. Use
+  `Recorder.store.recorder_disabled!` instead.
 
 ## Development
 

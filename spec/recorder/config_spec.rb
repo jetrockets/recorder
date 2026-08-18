@@ -51,16 +51,31 @@ RSpec.describe Recorder::Config do
   end
 
   describe '#async=' do
-    it 'accepts configuration' do
-      described_class.instance.async = true
+    context 'when Sidekiq is available' do
+      before { allow(Recorder).to receive(:sidekiq_available?).and_return(true) }
 
-      expect(described_class.instance.async).to be(true)
+      it 'accepts configuration' do
+        described_class.instance.async = true
+
+        expect(described_class.instance.async).to be(true)
+      end
+
+      it 'coerces to boolean' do
+        described_class.instance.async = 'true'
+
+        expect(described_class.instance.async).to be(true)
+      end
     end
 
-    it 'coerces to boolean' do
-      described_class.instance.async = 'true'
+    it 'accepts false without Sidekiq' do
+      described_class.instance.async = false
 
-      expect(described_class.instance.async).to be(true)
+      expect(described_class.instance.async).to be(false)
+    end
+
+    it 'raises when switched on without Sidekiq' do
+      expect { described_class.instance.async = true }
+        .to raise_error(Recorder::SidekiqNotAvailable, /Sidekiq is not loaded/)
     end
   end
 

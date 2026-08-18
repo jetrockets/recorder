@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'recorder/sidekiq'
+
 require 'recorder/config'
 require 'recorder/version'
 
@@ -65,8 +67,6 @@ module Recorder
   end
 end
 
-# if defined?(Sidekiq)
-#   require 'recorder/sidekiq/revisions_worker'
-# end
+require 'recorder/sidekiq/revisions_worker' if Recorder.sidekiq_available?
 
 require 'recorder/revision'

@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'recorder/sidekiq'
 require 'recorder/tape'
 require 'active_support/concern'
 
@@ -9,6 +10,11 @@ module Recorder
 
     included do
       has_many :revisions, class_name: '::Recorder::Revision', inverse_of: :item, as: :item
+
+      # `class_attribute` rather than a class instance variable: it is inherited
+      # by STI subclasses, and it generates an instance reader, which is what
+      # `Tape` reads. A plain `@recorder_options` is visible on neither.
+      class_attribute :recorder_options, instance_writer: false, default: {}
     end
 
     def recorder_dirty?
@@ -22,12 +28,10 @@ module Recorder
     end
 
     class_methods do
-      define_method :recorder_options do
-        @recorder_options ||= {}
-      end
-
       def recorder(options = {})
-        @recorder_options = options
+        Recorder.assert_async_available!(options[:async], "#{name} declares `recorder async: true`")
+
+        self.recorder_options = options
 
         after_create do
           Recorder::Tape.new(self).record_create if recorder_record?
