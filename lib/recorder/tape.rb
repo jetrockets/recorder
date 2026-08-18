@@ -36,8 +36,14 @@ module Recorder
 
     protected
 
+    # Instance first: an app may define `recorder_options` as an instance method
+    # to work around this having been broken, and that override must keep
+    # winning. The class branch covers items that do not include `Observer`.
     def recorder_options
-      item.respond_to?(:recorder_options) ? item.recorder_options : {}
+      return item.recorder_options if item.respond_to?(:recorder_options)
+      return item.class.recorder_options if item.class.respond_to?(:recorder_options)
+
+      {}
     end
 
     def data_for(event, options)
@@ -47,7 +53,12 @@ module Recorder
     def record(params)
       Recorder::Tape.record(
         {
-          item_type: item.class.to_s,
+          # `polymorphic_name`, not `to_s`: the `has_many :revisions` that
+          # `Observer` installs is polymorphic, so Active Record looks rows up
+          # by the base class name. Writing `to_s` made every revision an STI
+          # subclass wrote unreachable from `item.revisions`. Identical to
+          # `to_s` for a non-STI model, which is why it never showed.
+          item_type: item.class.polymorphic_name,
           item_id: item.id,
           **params
         },

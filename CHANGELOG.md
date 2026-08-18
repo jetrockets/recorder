@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Per-model `recorder` options (`ignore:`, `only:`, `associations:`, `async:`)
+  are applied again. Since v1.2.2 they were stored on the singleton class while
+  every consumer read them off the instance, so every model silently fell back
+  to the global configuration (#16).
+- `recorder` options are inherited by STI subclasses. They were held in a class
+  instance variable, which is not inherited, so a subclass got `{}` (#16).
+- Revisions written by an STI subclass are reachable through `item.revisions`.
+  `item_type` was written as the subclass name while the polymorphic
+  association looks rows up by the base class name (#16).
+
+### Changed
+
+- **Breaking.** Per-model `ignore:` now composes with `Recorder.config.ignore`
+  instead of replacing it, so a per-model list can only narrow what is recorded.
+- **Breaking.** Asking for `async: true` without Sidekiq loaded now raises
+  `Recorder::SidekiqNotAvailable` at declaration time. It previously raised
+  `NameError: uninitialized constant Recorder::Sidekiq` on the first save when
+  set through `Recorder.config.async`, and was unreachable per-model.
+
 ### Added
 
 - Declared and tested the supported Ruby versions (#10).

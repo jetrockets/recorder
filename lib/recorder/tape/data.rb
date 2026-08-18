@@ -37,16 +37,16 @@ module Recorder
 
       private
 
+      # `only:` is an explicit allowlist and wins outright. `ignore:` composes
+      # with the global config instead of replacing it, so a per-model list can
+      # only ever shrink the trail. `Array.wrap(nil)` is `[]`, so an undeclared
+      # `ignore:` falls through the same branch.
       def sanitize_attributes(attributes, options)
-        if options[:only].present?
-          only = wrap_options(options[:only])
-          attributes.symbolize_keys.slice(*only)
-        elsif options[:ignore].present?
-          ignore = wrap_options(options[:ignore])
-          attributes.symbolize_keys.except(*ignore)
-        else
-          attributes.symbolize_keys.except(*Recorder.config.ignore)
-        end
+        attributes = attributes.symbolize_keys
+
+        return attributes.slice(*wrap_options(options[:only])) if options[:only].present?
+
+        attributes.except(*(Recorder.config.ignore | wrap_options(options[:ignore])))
       end
 
       def wrap_options(values)
