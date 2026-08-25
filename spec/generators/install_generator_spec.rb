@@ -43,33 +43,33 @@ describe Recorder::InstallGenerator, type: :generator do
     Dir[File.join(destination_root, 'db/migrate/*.rb')].sort
   end
 
-  def migration_class_names
-    generated_migrations.map { |path| File.basename(path, '.rb').sub(/\A\d+_/, '').camelize }
-  end
-
-  # Loads and runs every generated migration, in filename order, the way
-  # `rails db:migrate` would.
+  # Runs every generated migration, in filename order, the way `rails db:migrate`
+  # would.
   #
-  # The constants are removed afterwards. Without that the first example to load
-  # a migration defines it for the whole run, and every later `load` either
-  # reuses that definition or trips a superclass mismatch — which would make
-  # these examples pass or fail on RSpec's random ordering rather than on the
-  # generated code.
+  # Each one is evaluated inside a throwaway module rather than `load`ed at top
+  # level, because the dummy app ships its own hand-written
+  # `CreateRecorderRevisions` — the same constant, declared
+  # `ActiveRecord::Migration[6.1]`. `rails_helper` loads it at boot whenever
+  # there are migrations to run, so on any Rails but 6.1 defining the generated
+  # one at top level raises `TypeError: superclass mismatch`.
+  #
+  # It only shows up against a database that has not been migrated yet: once the
+  # dummy app is up to date, Active Record never loads the migration files and
+  # the constant never exists. So it reproduces on a fresh database — CI, or a
+  # first local run — and hides everywhere else.
   def run_generated_migrations(connection)
     was_verbose = ActiveRecord::Migration.verbose
     ActiveRecord::Migration.verbose = false
 
-    generated_migrations.zip(migration_class_names).each do |path, name|
-      load path
-      Object.const_get(name).new.migrate(:up)
+    generated_migrations.each do |path|
+      namespace = Module.new
+      namespace.module_eval(File.read(path), path)
+      namespace.constants.each { |name| namespace.const_get(name).new.migrate(:up) }
     end
 
     connection
   ensure
     ActiveRecord::Migration.verbose = was_verbose
-    migration_class_names.each do |name|
-      Object.send(:remove_const, name) if Object.const_defined?(name, false)
-    end
   end
 
   describe 'no options' do
