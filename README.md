@@ -4,9 +4,20 @@ Recorder tracks changes of your Rails models
 
 ## Requirements
 
-- Ruby >= 3.0, < 3.4
-- Rails 6.1
 - PostgreSQL — revisions are stored in `jsonb` and `inet` columns
+- Ruby and Rails per the table below
+
+| Rails | Supported Ruby |
+|-------|----------------|
+| 6.1   | 3.0 – 3.3      |
+| 7.0   | 3.0 – 3.3      |
+| 7.1   | 3.0 – 3.4      |
+| 7.2   | 3.1 – 3.4      |
+| 8.0   | 3.2 – 3.4      |
+| 8.1   | 3.2 – 3.4      |
+
+Rails 6.1 and 7.0 cannot run on Ruby 3.4 — they require `mutex_m`, which left the
+default gems in that release. Every combination in the table is exercised in CI.
 
 ## Installation
 
@@ -83,6 +94,19 @@ The gem is under active maintenance and these defects are known as of 1.2.3:
 ## Development
 
 After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+
+The specs need a PostgreSQL server. Connection settings are read from the
+environment — `RECORDER_DB_HOST`, `RECORDER_DB_PORT`, `RECORDER_DB_USERNAME`,
+`RECORDER_DB_PASSWORD`, `RECORDER_DB_NAME` — and default to `postgres:postgres`
+on `localhost:5432` against a `recorder_test` database, which must already exist.
+
+`rake spec` runs against whichever Rails version the root `Gemfile` resolves to.
+To run against a specific one, use the appraisal gemfiles:
+
+```bash
+bundle exec appraisal install            # once, to generate gemfiles/
+bundle exec appraisal rails-7.2 rake spec
+```
 
 To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
 

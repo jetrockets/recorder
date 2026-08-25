@@ -4,7 +4,15 @@ require 'spec_helper'
 require File.expand_path('../spec/dummy/config/environment', __dir__)
 require 'rspec/rails'
 
-ActiveRecord::MigrationContext.new(File.expand_path('dummy/db/migrate', __dir__), ActiveRecord::SchemaMigration).migrate
+migrations_path = File.expand_path('dummy/db/migrate', __dir__)
+
+# Rails 6.1 requires the schema migration class here. It became optional in 7.0
+# and was removed in 7.2.
+if ActiveRecord.version < Gem::Version.new('7.0')
+  ActiveRecord::MigrationContext.new(migrations_path, ActiveRecord::SchemaMigration).migrate
+else
+  ActiveRecord::MigrationContext.new(migrations_path).migrate
+end
 
 ActiveRecord::Migration.check_pending! if ActiveRecord::Migration.respond_to?(:check_pending!)
 

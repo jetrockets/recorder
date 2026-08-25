@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Support for Rails 7.0, 7.1, 7.2, 8.0, and 8.1. Rails 6.1 remains supported.
+- Support for Ruby 3.3 and 3.4. Ruby 3.0 remains the minimum.
 - Declared and tested the supported Ruby versions (#10).
 - The specs and RuboCop now run in GitHub Actions (#9).
 - Gem metadata: `source_code_uri`, `changelog_uri`, `bug_tracker_uri`, and
@@ -16,9 +18,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `activerecord` and `activesupport` requirements widen from `~> 6.1` to
+  `>= 6.1, < 9`, and the `< 3.4` Ruby ceiling is removed. Rails 6.1 and 7.0
+  cannot run on Ruby 3.4; every other combination is exercised in CI.
 - The released gem now ships only `lib/`, the README, the LICENSE, and this
   changelog. Previous releases also carried repository scaffolding — CI
   configuration, `Rakefile`, `bin/`, and dotfiles — that a host app never loads.
+
+### Removed
+
+- `pg` is no longer a runtime dependency. Revisions still require PostgreSQL
+  column types, but the adapter is the host application's to declare, so the
+  gem no longer forces `pg` into its bundle.
 
 ### Fixed
 
