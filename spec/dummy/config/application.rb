@@ -14,8 +14,9 @@ Bundler.require(*Rails.groups)
 
 module Dummy
   class Application < Rails::Application
-    # Initialize configuration defaults for originally generated Rails version.
-    config.load_defaults 6.1
+    # Follow the framework defaults of whichever Rails is installed. Set
+    # RAILS_DEFAULTS to run against a different set.
+    config.load_defaults ENV.fetch('RAILS_DEFAULTS') { ::Rails::VERSION::STRING }.to_f
 
     # Configuration for the application, engines, and railties goes here.
     #
