@@ -41,8 +41,6 @@ The generator writes the migration but does not run it. Run it yourself:
 
 The generator accepts these options:
 
-- `--with_number_column` — adds a `number` column holding a per-item revision
-  counter, maintained by a database trigger;
 - `--with_index_by_user_id` — adds an index on `user_id`;
 - `--with_partitions` — partitions the `recorder_revisions` table.
 

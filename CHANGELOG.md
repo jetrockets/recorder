@@ -30,6 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pg` is no longer a runtime dependency. Revisions still require PostgreSQL
   column types, but the adapter is the host application's to declare, so the
   gem no longer forces `pg` into its bundle.
+- The `--with_number_column` generator option. The `number` column it added was
+  never read by the gem, and the migration it generated could not run on any
+  Rails this gem supports, so there is no working installed base. Anyone who has
+  the column keeps it — the counter lives in a trigger in their own schema,
+  which this does not touch, and the gem never writes the column. Optional
+  cleanup, including a working `DROP TRIGGER`, is in #14 — the `down` the gem
+  originally shipped is a syntax error and cannot roll it back (#14).
 
 ### Fixed
 
