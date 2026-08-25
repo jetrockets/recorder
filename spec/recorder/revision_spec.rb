@@ -8,6 +8,17 @@ module Recorder
 
     # `Tape::Record#record` calls `create`, not `create!`, so a revision that
     # fails validation is dropped without raising.
+    #
+    # That matters more than it looks. `belongs_to :user` is declared without
+    # `optional: true`, and works only because the gem is required before the
+    # Active Record railtie applies `belongs_to_required_by_default` — so the
+    # reflection is built while the default is still off. It is correct by
+    # accident of load order, not by declaration.
+    #
+    # If that ordering ever shifted, the association would become required,
+    # every `create` would fail validation and return an object, and auditing
+    # would stop for every model in the app with nothing raised anywhere. These
+    # examples fail loudly instead.
     describe 'recording without a user' do
       context 'when no user is set' do
         it 'records a revision' do
@@ -29,6 +40,10 @@ module Recorder
           expect { Security.create!(name: 'Facebook', identifier: 'FB') }
             .to change(described_class, :count).by(1)
         end
+      end
+
+      it 'does not require the `user` association' do
+        expect(described_class.reflect_on_association(:user).options[:required]).to be_falsey
       end
 
       it 'considers a revision without a user valid' do

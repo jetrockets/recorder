@@ -40,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `Recorder.version` returns the version instead of raising `TypeError`. It
+  scoped into `VERSION::STRING`, but `VERSION` is a `String` (#17).
+- `recorder_disabled!` re-enables recording when the block raises. The re-enable
+  was skipped on the exception path, so recording stayed off for the rest of the
+  request or job and every later save went silently unaudited (#17).
 - Made the spec suite runnable and trustworthy again (#8).
 
 ## [1.2.3] - 2023-04-25
