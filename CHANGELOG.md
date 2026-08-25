@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pg` is no longer a runtime dependency. Revisions still require PostgreSQL
   column types, but the adapter is the host application's to declare, so the
   gem no longer forces `pg` into its bundle.
+- The `--with_partitions` generator option. It dispatched to a template that was
+  never added to the gem, so the run wrote the first migration and then aborted,
+  leaving a partial install. It never completed once (#18).
 - The `--with_number_column` generator option. The `number` column it added was
   never read by the gem, and the migration it generated could not run on any
   Rails this gem supports, so there is no working installed base. Anyone who has
@@ -40,6 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `rails generate recorder:install` now produces migrations that run. The
+  templates subclassed a bare `ActiveRecord::Migration`, which Rails has
+  rejected since 5.0, so `rails db:migrate` raised on the only documented way to
+  install the gem. The version is templated from the host app's Rails (#18).
 - Made the spec suite runnable and trustworthy again (#8).
 
 ## [1.2.3] - 2023-04-25
