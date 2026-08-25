@@ -28,13 +28,15 @@ module Recorder
         options[:async].nil? ? Recorder.config.async : options[:async]
       end
 
+      # Sidekiq accepts only JSON-native job arguments. `data` is serialised
+      # ahead of the round trip so it survives as a string for the worker to
+      # parse back; everything else is normalised by the round trip itself.
       def record_async(params, options)
         params[:data] = params[:data].to_json
-        params[:action_date] = params[:action_date].to_s
 
         Recorder::Sidekiq::RevisionsWorker.perform_in(
           options[:delay] || 2.seconds,
-          params.stringify_keys
+          JSON.parse(params.to_json)
         )
       end
     end

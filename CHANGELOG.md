@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Asynchronous recording no longer enqueues job arguments Sidekiq rejects. The
+  `meta` hash supplied through `Recorder.meta=` reached the worker with its
+  original keys and values, and Sidekiq raises on arguments that are not JSON
+  native from 7.0 onwards. Because the raise happened inside an `after_create`,
+  it rolled back the host application's own write. The enqueued payload is now
+  normalised to JSON natives in full.
 - Made the spec suite runnable and trustworthy again (#8).
 
 ## [1.2.3] - 2023-04-25
