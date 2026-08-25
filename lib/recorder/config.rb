@@ -2,6 +2,8 @@
 
 require 'singleton'
 
+require 'recorder/sidekiq'
+
 module Recorder
   # Global configuration options
   class Config
@@ -17,7 +19,11 @@ module Recorder
       @ignore = Array.wrap(value).map(&:to_sym)
     end
 
+    # Guarded like the per-model `async:` option. This path is reachable without
+    # any model declaring anything, so it needs the same fail-fast treatment.
     def async=(value)
+      Recorder.assert_async_available!(value, '`Recorder.config.async` is set to true')
+
       @async = !!value
     end
 

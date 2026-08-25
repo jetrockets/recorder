@@ -32,7 +32,7 @@ module Recorder
         params[:data] = params[:data].to_json
         params[:action_date] = params[:action_date].to_s
 
-        Recorder::Sidekiq::RevisionsWorker.perform_in(
+        Recorder.sidekiq_worker.perform_in(
           options[:delay] || 2.seconds,
           params.stringify_keys
         )
