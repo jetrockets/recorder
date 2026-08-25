@@ -60,7 +60,7 @@ module Recorder
 
     # Returns version of Recorder as +String+
     def version
-      VERSION::STRING
+      VERSION
     end
   end
 end
