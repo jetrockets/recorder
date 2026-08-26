@@ -1,6 +1,12 @@
 # Recorder
 
-Recorder tracks changes of your Rails models
+[![CI](https://github.com/jetrockets/recorder/actions/workflows/ci.yml/badge.svg)](https://github.com/jetrockets/recorder/actions/workflows/ci.yml)
+[![Gem Version](https://img.shields.io/gem/v/recorder)](https://rubygems.org/gems/recorder)
+
+Recorder tracks changes of your Rails models. Each create, update, and destroy on
+an observed model writes a `recorder_revisions` row holding an attribute snapshot,
+the changes, and — when the controller concern is included — the user and IP
+behind the request.
 
 ## Requirements
 
@@ -45,9 +51,11 @@ The generator accepts one option:
 
 ## Usage
 
-To enable logging on a model you just need to include `Recorder::Observer` into the model and configure logging options for it:
+### Observing a model
 
-``` ruby
+Include `Recorder::Observer` into the model and configure logging options for it:
+
+```ruby
 class Post < ActiveRecord::Base
   include ::Recorder::Observer
 
@@ -66,7 +74,28 @@ Recorder supports the following options:
  * `associations: {hash} (hash)` - allows to set what associations will be logged alongside with the model. For each association you can also set ignore and only options;
  * `async: bool` - a logging strategy (true - asynchronous, false - synchronous).
 
-There are two strategies for logging: synchronous and asynchronous. When the synchronous strategy is used, a revision record is saved immediately after a model is saved, and the async strategy moves creating of revision records to [Sidekiq](https://github.com/mperham/sidekiq).
+These per-model options do not reach the recorder yet — see [Known issues](#known-issues).
+Until they do, every observed model records a full attribute snapshot, filtered
+only by the global `Recorder.config.ignore`.
+
+### Global configuration
+
+```ruby
+Recorder.config do |config|
+  config.ignore = %i[created_at updated_at]
+  config.async = false
+  config.sidekiq_options = {queue: 'recorder', retry: 10, backtrace: true}
+end
+```
+
+`ignore` defaults to `[]`, `async` to `false`, and `sidekiq_options` to the hash
+shown above.
+
+There are two strategies for logging: synchronous and asynchronous. When the synchronous strategy is used, a revision record is saved immediately after a model is saved, and the async strategy moves creating of revision records to [Sidekiq](https://github.com/sidekiq/sidekiq). Under the async
+strategy the revision is enqueued to `Recorder::Sidekiq::RevisionsWorker` two
+seconds out; the worker is loaded by the railtie when `Sidekiq` is defined.
+
+### Recording the current user
 
 To enable storing of such data as user_id and ip, you need to include `Recorder::Rails::ControllerConcern` to `ApplicationController`. Recorder uses [request_store](https://github.com/steveklabnik/request_store) to safely store these data on a thread level.
 
@@ -77,14 +106,82 @@ To enable storing of such data as user_id and ip, you need to include `Recorder:
   end
 ```
 
+The concern reads `current_user`; override `recorder_user_id` to name a different
+method. Override `recorder_meta` to store a hash alongside every revision. A
+revision without a user is valid — `user_id` stays `nil`.
+
+### Turning recording off
+
+`Recorder::Manager` suspends recording for the current request or thread:
+
+```ruby
+class Importer
+  include Recorder::Manager
+
+  def call
+    recorder_disabled! do
+      # nothing recorded in here
+    end
+  end
+end
+```
+
+The block form re-enables recording on the way out, including when the block
+raises. Called without a block, `recorder_disabled!` stays in effect until
+`recorder_enabled!`.
+
+### Reading revisions
+
+Observed models get a `revisions` association:
+
+```ruby
+revision = post.revisions.ordered_by_created_at.first
+
+revision.event        # "update"
+revision.data         # {"attributes" => {...}, "changes" => {...}, "associations" => {...}}
+revision.user_id
+revision.action_date
+```
+
+`#item_changeset` wraps `data['changes']` in a `Recorder::Changeset`, which reads
+the values back as the model's own types:
+
+```ruby
+changeset = revision.item_changeset
+
+changeset.keys                        # attributes that changed
+changeset.previous(:title)            # value before the change
+changeset.next(:title)                # value after it
+changeset.human_attribute_name(:title)
+changeset.previous_version            # a copy of the record with the old values
+```
+
+Changed associations are reachable the same way:
+
+```ruby
+revision.changed_associations         # ["author"]
+revision.association_changeset('author')
+```
+
+To render a changeset yourself, define `PostChangeset` — the class is looked up
+as `"#{model}Changeset"` — or point at another one with a
+`recorder_changeset_class` class method on the model. Otherwise
+`Recorder::Changeset` is used.
+
 ## Known issues
 
 The gem is under active maintenance and these defects are known as of 1.2.3:
 
 - The per-model options above (`ignore:`, `only:`, `associations:`, `async:`)
-  are not applied — every model records a full attribute snapshot regardless of
-  what is passed to `recorder`.
-- `Recorder.enabled=` does not switch recording off.
+  are not applied. `Recorder::Tape` asks the record instance for
+  `recorder_options`, but `Recorder::Observer` defines that method on the class,
+  so the lookup always falls back to `{}` — every observed model records a full
+  attribute snapshot, synchronously. Global configuration is unaffected.
+- `Recorder.enabled=` does not switch recording off. It writes to
+  `Recorder.config`, which nothing on the recording path reads — the gates are in
+  `Recorder.store`, which `Recorder::Manager` drives.
+- Collection associations are never recorded. `associations:` handles only
+  singular associations; a `has_many` reflection is skipped without a warning.
 
 ## Development
 
@@ -103,6 +200,9 @@ bundle exec appraisal install            # once, to generate gemfiles/
 bundle exec appraisal rails-7.2 rake spec
 ```
 
+CI runs the suite across the whole Ruby × Rails matrix above, plus `bundle exec
+rubocop`. Both must pass before a pull request merges.
+
 To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
 
 ## Contributing
@@ -118,4 +218,3 @@ Recorder is maintained by [JetRockets](https://www.jetrockets.com).
 ## License
 
 The gem is available as open source under the terms of the [MIT License](http://opensource.org/licenses/MIT).
-
