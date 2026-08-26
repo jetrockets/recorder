@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The released gem now ships only `lib/`, the README, the LICENSE, and this
   changelog. Previous releases also carried repository scaffolding — CI
   configuration, `Rakefile`, `bin/`, and dotfiles — that a host app never loads.
+- `recorder_revisions.item_id` and `recorder_revisions.user_id` are now
+  `bigint`. Rails has defaulted primary keys to `bigint` since 5.1, so the
+  `integer` columns could not hold a key from any table this gem audits once it
+  passed 2,147,483,647. No release shipped a migration that ran, so no host app
+  has the narrow columns (#18).
 
 ### Removed
 

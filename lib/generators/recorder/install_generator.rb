@@ -31,7 +31,7 @@ module Recorder
     protected
 
     def add_or_skip_recorder_migration(template)
-      migration_dir = File.expand_path('db/migrate')
+      migration_dir = File.expand_path('db/migrate', destination_root)
       if self.class.migration_exists?(migration_dir, template)
         ::Kernel.warn "Migration already exists: #{template}"
       else

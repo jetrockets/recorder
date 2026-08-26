@@ -84,8 +84,8 @@ describe Recorder::InstallGenerator, type: :generator do
     end
 
     it 'generates a migration declaring a Rails version' do
-      # Bug 11: a bare `ActiveRecord::Migration` subclass has been rejected
-      # since Rails 5.0, so an unversioned migration cannot run anywhere.
+      # Rails has rejected a bare `ActiveRecord::Migration` subclass since 5.0,
+      # so an unversioned migration runs nowhere.
       expect(File.read(generated_migrations.first))
         .to match(/class CreateRecorderRevisions < ActiveRecord::Migration\[\d+\.\d+\]/)
     end
@@ -106,6 +106,16 @@ describe Recorder::InstallGenerator, type: :generator do
           'id', 'item_type', 'item_id', 'event', 'data',
           'ip', 'action_date', 'user_id', 'meta', 'created_at'
         )
+      end
+    end
+
+    it 'sizes the key columns to hold a Rails primary key' do
+      in_isolated_schema do |connection|
+        run_generated_migrations(connection)
+
+        types = connection.columns('recorder_revisions').to_h { |c| [c.name, c.sql_type] }
+
+        expect(types.values_at('item_id', 'user_id')).to eq(%w[bigint bigint])
       end
     end
 
@@ -139,18 +149,31 @@ describe Recorder::InstallGenerator, type: :generator do
     end
   end
 
-  # Bug 12: `--with_partitions` was advertised and dispatched to a template that
-  # was never added to the gem. The run wrote the first migration and then
-  # aborted — a partial install, not an atomic failure. It was also the only
-  # option with no example here, which is why it was the only broken one.
+  describe 'a destination that already has the migration' do
+    before do
+      prepare_destination
+      run_generator
+    end
+
+    it 'warns and writes nothing the second time' do
+      allow(Kernel).to receive(:warn)
+      already_written = generated_migrations
+
+      run_generator
+
+      expect(generated_migrations).to eq(already_written)
+      expect(Kernel).to have_received(:warn).with(/create_recorder_revisions/)
+    end
+  end
+
   describe 'advertised options' do
     it 'no longer offers `--with_partitions`' do
       expect(described_class.class_options.key?(:with_partitions)).to be(false)
     end
 
-    # A general guard rather than one aimed at `--with_partitions`: if an option
-    # is ever added whose template is missing, or whose migration does not run,
-    # this fails without anyone remembering to write an example for it.
+    # A general guard: if an option is ever added whose template is missing, or
+    # whose migration does not run, this fails without anyone remembering to
+    # write an example for it.
     it 'dispatches every one to a template that exists and runs' do
       prepare_destination
       run_generator(recorder_options.map { |name| "--#{name}" })
