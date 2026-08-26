@@ -39,10 +39,9 @@ The generator writes the migration but does not run it. Run it yourself:
 
     $ rails db:migrate
 
-The generator accepts these options:
+The generator accepts one option:
 
-- `--with_index_by_user_id` — adds an index on `user_id`;
-- `--with_partitions` — partitions the `recorder_revisions` table.
+- `--with_index_by_user_id` — adds an index on `user_id`.
 
 ## Usage
 
@@ -85,8 +84,6 @@ The gem is under active maintenance and these defects are known as of 1.2.3:
 - The per-model options above (`ignore:`, `only:`, `associations:`, `async:`)
   are not applied — every model records a full attribute snapshot regardless of
   what is passed to `recorder`.
-- The migrations written by `rails generate recorder:install` do not run as
-  generated, and `--with_partitions` fails during generation.
 - `Recorder.enabled=` does not switch recording off.
 
 ## Development

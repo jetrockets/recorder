@@ -11,13 +11,6 @@ module Recorder
     source_root File.expand_path('templates', __dir__)
 
     class_option(
-      :with_partitions,
-      type: :boolean,
-      default: false,
-      desc: 'Create partitions to `recorder_revisions` table'
-    )
-
-    class_option(
       :with_index_by_user_id,
       type: :boolean,
       default: false,
@@ -29,7 +22,6 @@ module Recorder
     def create_migration_file
       add_or_skip_recorder_migration('create_recorder_revisions')
       add_or_skip_recorder_migration('add_index_by_user_id_to_recorder_revisions') if options.with_index_by_user_id?
-      add_or_skip_recorder_migration('add_partitions_to_recorder_revisions') if options.with_partitions?
     end
 
     def self.next_migration_number(dirname)
@@ -39,11 +31,11 @@ module Recorder
     protected
 
     def add_or_skip_recorder_migration(template)
-      migration_dir = File.expand_path('db/migrate')
+      migration_dir = File.expand_path('db/migrate', destination_root)
       if self.class.migration_exists?(migration_dir, template)
         ::Kernel.warn "Migration already exists: #{template}"
       else
-        migration_template "#{template}.rb", "db/migrate/#{template}.rb"
+        migration_template "#{template}.rb.tt", "db/migrate/#{template}.rb"
       end
     end
   end
