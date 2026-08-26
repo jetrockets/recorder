@@ -34,17 +34,19 @@ describe Recorder::InstallGenerator, type: :generator do
     connection.schema_cache.clear!
   end
 
-  # The gem's own options, without Thor's built-ins (`--force`, `--quiet`, ...).
+  # The gem's own options, without Thor's built-ins (`--force`, `--quiet`, ...),
+  # which every generator inherits from `Rails::Generators::Base`.
   def recorder_options
-    described_class.class_options.keys.map(&:to_s).grep(/\Awith_/)
+    (described_class.class_options.keys - ::Rails::Generators::Base.class_options.keys).map(&:to_s)
   end
 
   def generated_migrations
     Dir[File.join(destination_root, 'db/migrate/*.rb')].sort
   end
 
-  # Runs every generated migration, in filename order, the way `rails db:migrate`
-  # would.
+  # Runs every generated migration, in filename order. Nothing is recorded in
+  # `schema_migrations` and each one runs outside a transaction of its own, so
+  # this establishes that the migrations execute, not that they are reversible.
   #
   # Each one is evaluated inside a throwaway module rather than `load`ed at top
   # level, because the dummy app ships its own hand-written
@@ -57,7 +59,7 @@ describe Recorder::InstallGenerator, type: :generator do
   # dummy app is up to date, Active Record never loads the migration files and
   # the constant never exists. So it reproduces on a fresh database — CI, or a
   # first local run — and hides everywhere else.
-  def run_generated_migrations(connection)
+  def run_generated_migrations
     was_verbose = ActiveRecord::Migration.verbose
     ActiveRecord::Migration.verbose = false
 
@@ -66,8 +68,6 @@ describe Recorder::InstallGenerator, type: :generator do
       namespace.module_eval(File.read(path), path)
       namespace.constants.each { |name| namespace.const_get(name).new.migrate(:up) }
     end
-
-    connection
   ensure
     ActiveRecord::Migration.verbose = was_verbose
   end
@@ -92,7 +92,7 @@ describe Recorder::InstallGenerator, type: :generator do
 
     it 'generates a migration that runs' do
       in_isolated_schema do |connection|
-        expect { run_generated_migrations(connection) }.not_to raise_error
+        expect { run_generated_migrations }.not_to raise_error
 
         expect(connection.table_exists?('recorder_revisions')).to be(true)
       end
@@ -100,7 +100,7 @@ describe Recorder::InstallGenerator, type: :generator do
 
     it 'creates the expected columns' do
       in_isolated_schema do |connection|
-        run_generated_migrations(connection)
+        run_generated_migrations
 
         expect(connection.columns('recorder_revisions').map(&:name)).to contain_exactly(
           'id', 'item_type', 'item_id', 'event', 'data',
@@ -111,7 +111,7 @@ describe Recorder::InstallGenerator, type: :generator do
 
     it 'sizes the key columns to hold a Rails primary key' do
       in_isolated_schema do |connection|
-        run_generated_migrations(connection)
+        run_generated_migrations
 
         types = connection.columns('recorder_revisions').to_h { |c| [c.name, c.sql_type] }
 
@@ -121,7 +121,7 @@ describe Recorder::InstallGenerator, type: :generator do
 
     it 'indexes the polymorphic item' do
       in_isolated_schema do |connection|
-        run_generated_migrations(connection)
+        run_generated_migrations
 
         expect(connection.indexes('recorder_revisions').map(&:columns))
           .to include(%w[item_type item_id])
@@ -142,7 +142,7 @@ describe Recorder::InstallGenerator, type: :generator do
 
     it 'generates migrations that run in order' do
       in_isolated_schema do |connection|
-        expect { run_generated_migrations(connection) }.not_to raise_error
+        expect { run_generated_migrations }.not_to raise_error
 
         expect(connection.indexes('recorder_revisions').map(&:columns)).to include(['user_id'])
       end
@@ -181,7 +181,7 @@ describe Recorder::InstallGenerator, type: :generator do
       expect(generated_migrations.length).to eq(recorder_options.length + 1)
 
       in_isolated_schema do |connection|
-        expect { run_generated_migrations(connection) }.not_to raise_error
+        expect { run_generated_migrations }.not_to raise_error
 
         expect(connection.table_exists?('recorder_revisions')).to be(true)
       end

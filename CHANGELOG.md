@@ -27,8 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `recorder_revisions.item_id` and `recorder_revisions.user_id` are now
   `bigint`. Rails has defaulted primary keys to `bigint` since 5.1, so the
   `integer` columns could not hold a key from any table this gem audits once it
-  passed 2,147,483,647. No release shipped a migration that ran, so no host app
-  has the narrow columns (#18).
+  passed 2,147,483,647. No release since Rails 5.0 shipped a migration that could
+  run; installs from the 0.1.x line on Rails 4 have the narrow columns and are
+  unaffected, because the gem ships no migration that alters an existing table
+  (#18).
 
 ### Removed
 
