@@ -17,12 +17,12 @@ ActiveRecord::Schema.define(version: 2026_08_13_000001) do
 
   create_table "recorder_revisions", force: :cascade do |t|
     t.string "item_type", null: false
-    t.integer "item_id"
+    t.bigint "item_id"
     t.string "event", null: false
     t.jsonb "data", null: false
     t.inet "ip"
     t.date "action_date", null: false
-    t.integer "user_id"
+    t.bigint "user_id"
     t.jsonb "meta"
     t.datetime "created_at", null: false
     t.index ["item_type", "item_id"], name: "index_recorder_revisions_on_item_type_and_item_id"
