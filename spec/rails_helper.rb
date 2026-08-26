@@ -4,6 +4,8 @@ require 'spec_helper'
 require File.expand_path('../spec/dummy/config/environment', __dir__)
 require 'rspec/rails'
 
+Dir[File.expand_path('support/**/*.rb', __dir__)].sort.each { |file| require file }
+
 migrations_path = File.expand_path('dummy/db/migrate', __dir__)
 
 # Rails 6.1 requires the schema migration class here. It became optional in 7.0

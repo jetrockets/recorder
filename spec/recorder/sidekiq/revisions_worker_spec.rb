@@ -2,30 +2,6 @@
 
 require 'rails_helper'
 
-# The gem declares no Sidekiq dependency, and the railtie requires the worker
-# only when the host app has Sidekiq loaded. A stand-in supplies the two class
-# methods the worker and its callers use.
-unless defined?(::Sidekiq::Worker)
-  module Sidekiq
-    module Worker
-      def self.included(base)
-        base.extend(ClassMethods)
-      end
-
-      module ClassMethods
-        def sidekiq_options(options = {})
-          options
-        end
-
-        def perform_in(interval, *args)
-        end
-      end
-    end
-  end
-end
-
-require 'recorder/sidekiq/revisions_worker'
-
 RSpec.describe Recorder::Sidekiq::RevisionsWorker do
   let(:user) { User.create!(name: 'Igor') }
 
