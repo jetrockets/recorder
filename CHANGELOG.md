@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-26
+
 ### Added
 
 - Support for Rails 7.0, 7.1, 7.2, 8.0, and 8.1. Rails 6.1 remains supported.
@@ -15,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The specs and RuboCop now run in GitHub Actions (#9).
 - Gem metadata: `source_code_uri`, `changelog_uri`, `bug_tracker_uri`, and
   `rubygems_mfa_required`.
+- README coverage of the public API: configuration, `Recorder.meta=`,
+  `recorder_disabled!`, and the association tracking options (#20).
 
 ### Changed
 
@@ -98,7 +102,8 @@ Releases at and before 1.1.1 predate this changelog. See the
 [commit history](https://github.com/jetrockets/recorder/commits/master) for
 details.
 
-[Unreleased]: https://github.com/jetrockets/recorder/compare/v1.2.3...HEAD
+[Unreleased]: https://github.com/jetrockets/recorder/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/jetrockets/recorder/compare/v1.2.3...v1.3.0
 [1.2.3]: https://github.com/jetrockets/recorder/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/jetrockets/recorder/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/jetrockets/recorder/compare/v1.2.0...v1.2.1
