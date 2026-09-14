@@ -203,7 +203,21 @@ bundle exec appraisal rails-7.2 rake spec
 CI runs the suite across the whole Ruby × Rails matrix above, plus `bundle exec
 rubocop`. Both must pass before a pull request merges.
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+To install this gem onto your local machine, run `bundle exec rake install`.
+
+To release a new version, bump `Recorder::VERSION` and move the `[Unreleased]`
+changelog entries under it in a pull request. Once that merges, tag the merge
+commit and push the tag:
+
+```bash
+git fetch origin
+git tag vX.Y.Z origin/master
+git push origin vX.Y.Z
+```
+
+The Release workflow then runs CI against the tagged commit, checks the tag
+matches `Recorder::VERSION`, publishes the gem to [rubygems.org](https://rubygems.org)
+through trusted publishing, and creates the GitHub release from the changelog.
 
 ## Contributing
 

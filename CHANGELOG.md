@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for Ruby 3.3 and 3.4. Ruby 3.0 remains the minimum.
 - Declared and tested the supported Ruby versions (#10).
 - The specs and RuboCop now run in GitHub Actions (#9).
+- Releases are published to RubyGems.org from GitHub Actions when a version tag
+  is pushed (#22).
 - Gem metadata: `source_code_uri`, `changelog_uri`, `bug_tracker_uri`, and
   `rubygems_mfa_required`.
 
