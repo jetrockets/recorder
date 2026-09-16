@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+
+    permissions:
+      # id-token for trusted publishing to RubyGems.org, contents for the GitHub release.
+      id-token: write
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history and remote branches, for the check against master.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+
+      - name: Check the tag matches Recorder::VERSION
+        run: |
+          version=$(ruby -Ilib -rrecorder/version -e 'print Recorder::VERSION')
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match Recorder::VERSION $version"
+            exit 1
+          fi
+
+      - name: Check the tagged commit is on master
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
+            echo "::error::Tag $GITHUB_REF_NAME points to a commit that is not on master"
+            exit 1
+          fi
+
+      - name: Extract the release notes from CHANGELOG.md
+        run: |
+          awk -v heading="## [${GITHUB_REF_NAME#v}]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md"; then
+            echo "::error::CHANGELOG.md has no entries under ## [${GITHUB_REF_NAME#v}]"
+            exit 1
+          fi
+
+      - name: Check whether the version is already on RubyGems.org
+        id: rubygems
+        run: |
+          status=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "https://rubygems.org/api/v2/rubygems/recorder/versions/${GITHUB_REF_NAME#v}.json")
+          case "$status" in
+            200) echo "published=true" >> "$GITHUB_OUTPUT" ;;
+            404) echo "published=false" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::RubyGems.org returned HTTP $status"; exit 1 ;;
+          esac
+
+      # Runs `rake release`, which skips tagging when the tag already exists.
+      - uses: rubygems/release-gem@v1
+        if: steps.rubygems.outputs.published == 'false'
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" \
+            --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
