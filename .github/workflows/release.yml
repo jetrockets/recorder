@@ -27,6 +27,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Full history and remote branches, for the check against master.
+          fetch-depth: 0
           persist-credentials: false
 
       - uses: ruby/setup-ruby@v1
@@ -42,18 +44,44 @@ jobs:
             exit 1
           fi
 
-      # Runs `rake release`, which skips tagging when the tag already exists.
-      - uses: rubygems/release-gem@v1
+      - name: Check the tagged commit is on master
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
+            echo "::error::Tag $GITHUB_REF_NAME points to a commit that is not on master"
+            exit 1
+          fi
 
-      - name: Create the GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
+      - name: Extract the release notes from CHANGELOG.md
         run: |
           awk -v heading="## [${GITHUB_REF_NAME#v}]" '
             index($0, heading) == 1 { found = 1; next }
             found && /^## \[/ { exit }
             found { print }
           ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md"; then
+            echo "::error::CHANGELOG.md has no entries under ## [${GITHUB_REF_NAME#v}]"
+            exit 1
+          fi
+
+      - name: Check whether the version is already on RubyGems.org
+        id: rubygems
+        run: |
+          status=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "https://rubygems.org/api/v2/rubygems/recorder/versions/${GITHUB_REF_NAME#v}.json")
+          case "$status" in
+            200) echo "published=true" >> "$GITHUB_OUTPUT" ;;
+            404) echo "published=false" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::RubyGems.org returned HTTP $status"; exit 1 ;;
+          esac
+
+      # Runs `rake release`, which skips tagging when the tag already exists.
+      - uses: rubygems/release-gem@v1
+        if: steps.rubygems.outputs.published == 'false'
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
           gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" \
             --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
