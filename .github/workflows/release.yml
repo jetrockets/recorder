@@ -83,5 +83,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists."
+            exit 0
+          fi
           gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" \
             --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
