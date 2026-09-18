@@ -73,8 +73,21 @@ Recorder supports the following options:
  * `only: [array]` - only these attributes are logged, other attributes are ingored;
  * `associations: {hash} (hash)` - allows to set what associations will be logged alongside with the model. For each association you can also set ignore and only options;
  * `async: bool` - a logging strategy (true - asynchronous, false - synchronous).
+ * `changes: Proc | Symbol` - extra entries to merge into a revision's `changes`. A Proc
+   is evaluated on the record, a Symbol names a method on it; both receive the event
+   (`:create`, `:update` or `:destroy`) and return a hash of `name => [old, new]`, or
+   `nil` for nothing. The entries are not filtered by `only:` or `ignore:`, and an
+   update that reports only custom changes still records a revision.
 
-These per-model options do not reach the recorder yet — see [Known issues](#known-issues).
+Inside the callback, read `saved_changes` and `saved_change_to_<attribute>?`, not
+`<attribute>_changed?`: the callback runs from `after_create`/`after_update`, where
+the dirty state has already been reset.
+
+A key that is not an attribute of the model is skipped when `Recorder::Changeset`
+rebuilds the previous and next versions. To display it, define
+`previous_<key>`/`next_<key>` on the model's changeset class.
+
+These per-model options, `changes:` included, do not reach the recorder yet — see [Known issues](#known-issues).
 Until they do, every observed model records a full attribute snapshot, filtered
 only by the global `Recorder.config.ignore`.
 
