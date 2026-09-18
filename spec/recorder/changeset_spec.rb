@@ -94,6 +94,19 @@ module Recorder
 
         expect(item.name).to eq('Meta')
       end
+
+      context 'when the changes carry a key that is not an attribute' do
+        let(:changes) { {'name' => %w[Facebook Meta], 'version' => [nil, 2]} }
+
+        it 'still returns the attribute values' do
+          changeset = described_class.new(item, changes)
+
+          aggregate_failures do
+            expect(changeset.previous(:name)).to eq('Facebook')
+            expect(changeset.next(:name)).to eq('Meta')
+          end
+        end
+      end
     end
   end
 end

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A `changes:` option on `recorder` that merges extra entries into a revision's
+  `changes`. It takes a Proc evaluated on the record or the name of a method on it;
+  both receive the event.
+
+### Fixed
+
+- `Recorder::Changeset#previous` and `#next` no longer raise `NoMethodError` when
+  the changes carry a key that is not an attribute of the model.
+
 ## [1.3.0] - 2026-09-16
 
 ### Added
