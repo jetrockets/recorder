@@ -141,14 +141,21 @@ module Recorder
       end
 
       context 'when a change is not an [old, new] pair' do
-        let(:changes) { {'name' => %w[Facebook Meta], 'source' => 2} }
-
-        it 'skips it rather than indexing into it' do
-          changeset = described_class.new(item, changes)
+        it 'skips a value that is not an Array rather than indexing into it' do
+          changeset = described_class.new(item, {'name' => %w[Facebook Meta], 'source' => 2})
 
           aggregate_failures do
             expect(changeset.previous(:name)).to eq('Facebook')
             expect(changeset.previous(:source)).to be_nil
+          end
+        end
+
+        it 'leaves the attribute alone when the Array does not hold two elements' do
+          changeset = described_class.new(item, {'name' => []})
+
+          aggregate_failures do
+            expect(changeset.previous(:name)).to eq('Meta')
+            expect(changeset.next(:name)).to eq('Meta')
           end
         end
       end

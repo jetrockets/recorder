@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `Recorder::Changeset#previous` and `#next` no longer raise `NoMethodError` when
   the changes carry a key that is not an attribute of the model, and skip values
-  that are not an `[old, new]` pair rather than indexing into them.
+  that are not a two-element `[old, new]` pair rather than indexing into them.
 
 ## [1.3.0] - 2026-09-16
 

@@ -89,7 +89,7 @@ the dirty state has already been reset.
 
 `Recorder::Changeset` rebuilds the previous and next versions by assigning each
 change onto a copy of the record, and skips what it cannot assign: a key that is
-not an attribute, and any value that is not an `[old, new]` pair. To display such
+not an attribute, and any value that is not a two-element `[old, new]` pair. To display such
 a key, define `previous_<key>`/`next_<key>` on the model's changeset class, and
 pick a name that `Recorder::Changeset` does not already answer to.
 

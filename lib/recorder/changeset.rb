@@ -33,7 +33,7 @@ module Recorder
       @previous_version = item.dup
 
       changes.each do |key, change|
-        @previous_version.try("#{key}=", change[0]) if change.is_a?(Array)
+        @previous_version.try("#{key}=", change[0]) if pair?(change)
       end
 
       @previous_version
@@ -49,10 +49,16 @@ module Recorder
       @next_version = item.dup
 
       changes.each do |key, change|
-        @next_version.try("#{key}=", change[1]) if change.is_a?(Array)
+        @next_version.try("#{key}=", change[1]) if pair?(change)
       end
 
       @next_version
+    end
+
+    private
+
+    def pair?(change)
+      change.is_a?(Array) && change.size == 2
     end
   end
 end
