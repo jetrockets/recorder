@@ -19,6 +19,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `changes`. It takes a Proc evaluated on the record or the name of a method on it;
   both receive the event.
 
+### Changed
+
+- `Recorder::Revision` declares both `belongs_to :user` and `belongs_to :item`
+  with `optional: true`. The associations have always been optional in practice,
+  but only because the gem is required before the Active Record railtie applies
+  `belongs_to_required_by_default`, so the reflections are built while the
+  default is still off. Had that ordering ever shifted, every revision without a
+  user would have failed validation, and so would every `destroy` revision,
+  which is written after its item's row is deleted. `Tape::Record#record` calls
+  `create`, not `create!`, so those revisions would have been dropped with
+  nothing raised anywhere. Recorded revisions are unchanged.
+
 ### Fixed
 
 - `Recorder::Changeset#previous` and `#next` no longer raise `NoMethodError` when
