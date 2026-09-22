@@ -21,14 +21,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `Recorder::Revision` declares `belongs_to :user, optional: true`. The
-  association has always been optional in practice, but only because the gem is
-  required before the Active Record railtie applies
-  `belongs_to_required_by_default`, so the reflection is built while the default
-  is still off. Had that ordering ever shifted, every revision would have failed
-  validation — and `Tape::Record#record` calls `create`, not `create!`, so
-  auditing would have stopped for every model in the app with nothing raised
-  anywhere. Recorded revisions are unchanged.
+- `Recorder::Revision` declares both `belongs_to :user` and `belongs_to :item`
+  with `optional: true`. The associations have always been optional in practice,
+  but only because the gem is required before the Active Record railtie applies
+  `belongs_to_required_by_default`, so the reflections are built while the
+  default is still off. Had that ordering ever shifted, every revision without a
+  user would have failed validation, and so would every `destroy` revision,
+  which is written after its item's row is deleted. `Tape::Record#record` calls
+  `create`, not `create!`, so those revisions would have been dropped with
+  nothing raised anywhere. Recorded revisions are unchanged.
 
 ### Fixed
 

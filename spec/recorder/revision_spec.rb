@@ -10,7 +10,9 @@ module Recorder
     # fails validation is dropped without raising. Were `belongs_to :user`
     # required, every `create` would fail validation and return an object, and
     # auditing would stop for every model in the app with nothing raised
-    # anywhere. These examples fail loudly instead.
+    # anywhere. Were `belongs_to :item` required, every `destroy` revision would
+    # be dropped the same way, since it is written after the row is deleted.
+    # These examples fail loudly instead.
     describe 'recording without a user' do
       context 'when no user is set' do
         it 'records a revision' do
@@ -45,6 +47,28 @@ module Recorder
       it 'considers a revision without a user valid' do
         revision = described_class.new(
           item_type: 'Security', item_id: 1, event: 'create',
+          action_date: Date.today, data: {attributes: {}}
+        )
+
+        expect(revision).to be_valid
+      end
+    end
+
+    describe 'recording an item that no longer exists' do
+      it 'declares the `item` association optional' do
+        expect(described_class.reflect_on_association(:item).options[:optional]).to be(true)
+      end
+
+      it 'runs no presence validation on the `item` association' do
+        expect(described_class.validators_on(:item)).to be_empty
+      end
+
+      it 'considers a revision of a deleted item valid' do
+        security = Security.create!(name: 'Facebook', identifier: 'FB')
+        security.destroy!
+
+        revision = described_class.new(
+          item_type: 'Security', item_id: security.id, event: 'destroy',
           action_date: Date.today, data: {attributes: {}}
         )
 
