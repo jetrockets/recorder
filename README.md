@@ -73,10 +73,36 @@ Recorder supports the following options:
  * `only: [array]` - only these attributes are logged, other attributes are ingored;
  * `associations: {hash} (hash)` - allows to set what associations will be logged alongside with the model. For each association you can also set ignore and only options;
  * `async: bool` - a logging strategy (true - asynchronous, false - synchronous).
+ * `changes: Proc | Symbol` - extra entries to merge into a revision's `changes`. A Proc
+   is evaluated on the record, a Symbol names a method on it; both receive the event
+   (`:create`, `:update` or `:destroy`) and return a hash of `name => [old, new]`, or
+   `nil` for nothing. Anything else raises `ArgumentError` where `recorder` is called.
 
-These per-model options do not reach the recorder yet — see [Known issues](#known-issues).
+The entries are merged after `only:` and `ignore:` have been applied, so those
+filters never drop them, and a key that matches an attribute replaces that
+attribute's entry. An update that reports only custom entries still records a
+revision.
+
+Inside the callback, read `saved_changes` and `saved_change_to_<attribute>?`, not
+`<attribute>_changed?`: the callback runs from `after_create`/`after_update`, where
+the dirty state has already been reset.
+
+`Recorder::Changeset` rebuilds the previous and next versions by assigning each
+change onto a copy of the record, and skips what it cannot assign: a key that is
+not an attribute, and any value that is not a two-element `[old, new]` pair. To display such
+a key, define `previous_<key>`/`next_<key>` on the model's changeset class, and
+pick a name that `Recorder::Changeset` does not already answer to.
+
+These per-model options, `changes:` included, do not reach the recorder yet — see [Known issues](#known-issues).
 Until they do, every observed model records a full attribute snapshot, filtered
-only by the global `Recorder.config.ignore`.
+only by the global `Recorder.config.ignore`. Options declared as an instance
+method are read, so that is the way to opt into any of them today:
+
+```ruby
+def recorder_options
+  {ignore: %i[identifier], changes: :extra_changes}
+end
+```
 
 ### Global configuration
 
@@ -150,7 +176,8 @@ changed:
   ran, filtered by the model's `only:` or `ignore:` and, failing those, by
   `Recorder.config.ignore`. Always present.
 - `changes` — the same filter applied to `saved_changes`, as
-  `name => [old, new]`. Omitted when nothing survives the filter.
+  `name => [old, new]`, plus any entries from `changes:`. Omitted when that
+  leaves nothing.
 - `associations` — those two keys again, one entry per association named in
   `associations:`. Omitted when no association reports anything.
 

@@ -23,8 +23,14 @@ module Recorder
         {attributes: sanitize_attributes(item.attributes, options)}
       end
 
+      def self.validate_changes_option!(callback)
+        return if callback.nil? || callback.is_a?(Proc) || callback.is_a?(Symbol) || callback.is_a?(String)
+
+        raise ArgumentError, "`changes:` expects a Proc or a method name, got #{callback.inspect}"
+      end
+
       def changes_for(event, options)
-        changes = sanitize_attributes(item.saved_changes, options)
+        changes = sanitize_attributes(item.saved_changes, options).merge(custom_changes_for(event, options))
 
         changes.present? ? {changes: changes} : {}
       end
@@ -36,6 +42,17 @@ module Recorder
       end
 
       private
+
+      def custom_changes_for(event, options)
+        callback = options[:changes]
+        return {} unless callback
+
+        self.class.validate_changes_option!(callback)
+
+        changes = callback.is_a?(Proc) ? item.instance_exec(event, &callback) : item.send(callback, event)
+
+        changes ? Hash(changes).symbolize_keys : {}
+      end
 
       def sanitize_attributes(attributes, options)
         if options[:only].present?
