@@ -27,6 +27,8 @@ module Recorder
       end
 
       def recorder(options = {})
+        Recorder::Tape::Data.validate_changes_option!(options[:changes])
+
         @recorder_options = options
 
         after_create do

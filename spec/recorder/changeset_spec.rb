@@ -94,6 +94,71 @@ module Recorder
 
         expect(item.name).to eq('Meta')
       end
+
+      context 'when the changes carry a key that is not an attribute' do
+        let(:changes) { {'name' => %w[Facebook Meta], 'source' => [nil, 2]} }
+
+        it 'still returns the attribute values' do
+          changeset = described_class.new(item, changes)
+
+          aggregate_failures do
+            expect(changeset.previous(:name)).to eq('Facebook')
+            expect(changeset.next(:name)).to eq('Meta')
+          end
+        end
+
+        it 'returns nothing for the key itself' do
+          changeset = described_class.new(item, changes)
+
+          aggregate_failures do
+            expect(changeset.previous(:source)).to be_nil
+            expect(changeset.next(:source)).to be_nil
+          end
+        end
+
+        context 'and the changeset class defines a reader for it' do
+          let(:changeset_class) do
+            Class.new(described_class) do
+              def previous_source
+                changes['source'][0] || 'unrated'
+              end
+
+              def next_source
+                changes['source'][1]
+              end
+            end
+          end
+
+          it 'returns what the reader answers' do
+            changeset = changeset_class.new(item, changes)
+
+            aggregate_failures do
+              expect(changeset.previous(:source)).to eq('unrated')
+              expect(changeset.next(:source)).to eq(2)
+            end
+          end
+        end
+      end
+
+      context 'when a change is not an [old, new] pair' do
+        it 'skips a value that is not an Array rather than indexing into it' do
+          changeset = described_class.new(item, {'name' => %w[Facebook Meta], 'source' => 2})
+
+          aggregate_failures do
+            expect(changeset.previous(:name)).to eq('Facebook')
+            expect(changeset.previous(:source)).to be_nil
+          end
+        end
+
+        it 'leaves the attribute alone when the Array does not hold two elements' do
+          changeset = described_class.new(item, {'name' => []})
+
+          aggregate_failures do
+            expect(changeset.previous(:name)).to eq('Meta')
+            expect(changeset.next(:name)).to eq('Meta')
+          end
+        end
+      end
     end
   end
 end

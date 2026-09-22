@@ -48,6 +48,17 @@ RSpec.describe Recorder::Tape::Data do
         end
       end
 
+      context 'and only a custom change is reported' do
+        let(:options) { {only: %i[type name], changes: ->(_event) { {source: [nil, 2]} }} }
+
+        it 'returns data for :update event' do
+          expect(data_for).to eq(
+            attributes: {type: 'type', name: 'name'},
+            changes: {source: [nil, 2]}
+          )
+        end
+      end
+
       context 'and item associations have changed' do
         let(:options) { {only: %i[type name], associations: {guard: {only: %i[type name]}}} }
         let(:guard) { Security.create!(type: 'guard', name: 'guard', identifier: 'guard') }
@@ -193,6 +204,90 @@ RSpec.describe Recorder::Tape::Data do
 
       it 'returns an empty hash' do
         expect(changes_for).to eq({})
+      end
+    end
+
+    context 'when options[:changes] is present' do
+      before do
+        allow(item).to receive(:saved_changes).and_return({name: ['security', 'name']})
+      end
+
+      context 'and it is a Proc' do
+        let(:options) { {changes: ->(event) { {'source' => [nil, "#{name}-#{event}"]} }} }
+
+        it 'evaluates it on the item and merges the result into the changes' do
+          expect(changes_for).to eq(
+            changes: {name: ['security', 'name'], source: [nil, 'name-update']}
+          )
+        end
+      end
+
+      context 'and it is a method name' do
+        let(:options) { {changes: :extra_changes} }
+
+        before do
+          allow(item).to receive(:extra_changes).with(:update).and_return({source: [nil, 1]})
+        end
+
+        it 'calls the method with the event and merges the result into the changes' do
+          expect(changes_for).to eq(
+            changes: {name: ['security', 'name'], source: [nil, 1]}
+          )
+        end
+      end
+
+      context 'and it is a method name given as a String' do
+        let(:options) { {changes: 'extra_changes'} }
+
+        before do
+          allow(item).to receive(:extra_changes).with(:update).and_return({source: [nil, 1]})
+        end
+
+        it 'calls the method with the event and merges the result into the changes' do
+          expect(changes_for).to eq(
+            changes: {name: ['security', 'name'], source: [nil, 1]}
+          )
+        end
+      end
+
+      context 'and it reports a key that is also an attribute' do
+        let(:options) { {changes: ->(_event) { {name: %w[custom entry]} }} }
+
+        it 'takes precedence over the attribute change' do
+          expect(changes_for).to eq(changes: {name: %w[custom entry]})
+        end
+      end
+
+      context 'and it returns nil' do
+        let(:options) { {changes: ->(_event) {}} }
+
+        it 'returns only the attribute changes' do
+          expect(changes_for).to eq(changes: {name: ['security', 'name']})
+        end
+      end
+
+      context 'and it returns false' do
+        let(:options) { {changes: ->(_event) { false && {source: [nil, 1]} }} }
+
+        it 'returns only the attribute changes' do
+          expect(changes_for).to eq(changes: {name: ['security', 'name']})
+        end
+      end
+
+      context 'and :only leaves out every attribute change' do
+        let(:options) { {only: %i[type], changes: ->(_event) { {source: [nil, 1]} }} }
+
+        it 'still returns the custom changes' do
+          expect(changes_for).to eq(changes: {source: [nil, 1]})
+        end
+      end
+
+      context 'and it is neither a Proc nor a method name' do
+        let(:options) { {changes: {source: [nil, 1]}} }
+
+        it 'raises ArgumentError' do
+          expect { changes_for }.to raise_error(ArgumentError, /expects a Proc or a method name/)
+        end
       end
     end
   end

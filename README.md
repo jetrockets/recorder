@@ -73,10 +73,36 @@ Recorder supports the following options:
  * `only: [array]` - only these attributes are logged, other attributes are ingored;
  * `associations: {hash} (hash)` - allows to set what associations will be logged alongside with the model. For each association you can also set ignore and only options;
  * `async: bool` - a logging strategy (true - asynchronous, false - synchronous).
+ * `changes: Proc | Symbol` - extra entries to merge into a revision's `changes`. A Proc
+   is evaluated on the record, a Symbol names a method on it; both receive the event
+   (`:create`, `:update` or `:destroy`) and return a hash of `name => [old, new]`, or
+   `nil` for nothing. Anything else raises `ArgumentError` where `recorder` is called.
 
-These per-model options do not reach the recorder yet — see [Known issues](#known-issues).
+The entries are merged after `only:` and `ignore:` have been applied, so those
+filters never drop them, and a key that matches an attribute replaces that
+attribute's entry. An update that reports only custom entries still records a
+revision.
+
+Inside the callback, read `saved_changes` and `saved_change_to_<attribute>?`, not
+`<attribute>_changed?`: the callback runs from `after_create`/`after_update`, where
+the dirty state has already been reset.
+
+`Recorder::Changeset` rebuilds the previous and next versions by assigning each
+change onto a copy of the record, and skips what it cannot assign: a key that is
+not an attribute, and any value that is not a two-element `[old, new]` pair. To display such
+a key, define `previous_<key>`/`next_<key>` on the model's changeset class, and
+pick a name that `Recorder::Changeset` does not already answer to.
+
+These per-model options, `changes:` included, do not reach the recorder yet — see [Known issues](#known-issues).
 Until they do, every observed model records a full attribute snapshot, filtered
-only by the global `Recorder.config.ignore`.
+only by the global `Recorder.config.ignore`. Options declared as an instance
+method are read, so that is the way to opt into any of them today:
+
+```ruby
+def recorder_options
+  {ignore: %i[identifier], changes: :extra_changes}
+end
+```
 
 ### Global configuration
 
@@ -143,6 +169,26 @@ revision.user_id
 revision.action_date
 ```
 
+`data` carries a complete attribute snapshot on every event, not only what
+changed:
+
+- `attributes` — every attribute of the record as it stood when the callback
+  ran, filtered by the model's `only:` or `ignore:` and, failing those, by
+  `Recorder.config.ignore`. Always present.
+- `changes` — the same filter applied to `saved_changes`, as
+  `name => [old, new]`, plus any entries from `changes:`. Omitted when that
+  leaves nothing.
+- `associations` — those two keys again, one entry per association named in
+  `associations:`. Omitted when no association reports anything.
+
+The snapshot is the contract, not an accident of the implementation: a revision
+is self-contained, so reconstructing a record at a point in time does not mean
+replaying every prior diff. It is also what keeps a `destroy` revision useful,
+since the row it describes is gone.
+
+An `update` records a revision only when the record or one of its recorded
+associations reports a change; `create` and `destroy` always record one.
+
 `#item_changeset` wraps `data['changes']` in a `Recorder::Changeset`, which reads
 the values back as the model's own types:
 
@@ -170,7 +216,7 @@ as `"#{model}Changeset"` — or point at another one with a
 
 ## Known issues
 
-The gem is under active maintenance and these defects are known as of 1.2.3:
+The gem is under active maintenance and these defects are known as of 1.3.0:
 
 - The per-model options above (`ignore:`, `only:`, `associations:`, `async:`)
   are not applied. `Recorder::Tape` asks the record instance for
@@ -182,6 +228,10 @@ The gem is under active maintenance and these defects are known as of 1.2.3:
   `Recorder.store`, which `Recorder::Manager` drives.
 - Collection associations are never recorded. `associations:` handles only
   singular associations; a `has_many` reflection is skipped without a warning.
+- A `destroy` revision carries a `changes` key describing the record's last
+  *update*. `destroy` does not clear `saved_changes`, and `data` is built the
+  same way for every event. The `attributes` snapshot is the accurate record of
+  what was deleted.
 
 ## Development
 
