@@ -19,7 +19,7 @@ module Recorder
     end
 
     belongs_to :item, polymorphic: true, inverse_of: :revisions
-    belongs_to :user
+    belongs_to :user, optional: true
 
     validates :item_type, presence: true
     validates :event, presence: true
