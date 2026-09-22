@@ -143,6 +143,25 @@ revision.user_id
 revision.action_date
 ```
 
+`data` carries a complete attribute snapshot on every event, not only what
+changed:
+
+- `attributes` — every attribute of the record as it stood when the callback
+  ran, filtered by the model's `only:` or `ignore:` and, failing those, by
+  `Recorder.config.ignore`. Always present.
+- `changes` — the same filter applied to `saved_changes`, as
+  `name => [old, new]`. Omitted when nothing survives the filter.
+- `associations` — those two keys again, one entry per association named in
+  `associations:`. Omitted when no association reports anything.
+
+The snapshot is the contract, not an accident of the implementation: a revision
+is self-contained, so reconstructing a record at a point in time does not mean
+replaying every prior diff. It is also what keeps a `destroy` revision useful,
+since the row it describes is gone.
+
+An `update` records a revision only when the record or one of its recorded
+associations reports a change; `create` and `destroy` always record one.
+
 `#item_changeset` wraps `data['changes']` in a `Recorder::Changeset`, which reads
 the values back as the model's own types:
 
@@ -170,7 +189,7 @@ as `"#{model}Changeset"` — or point at another one with a
 
 ## Known issues
 
-The gem is under active maintenance and these defects are known as of 1.2.3:
+The gem is under active maintenance and these defects are known as of 1.3.0:
 
 - The per-model options above (`ignore:`, `only:`, `associations:`, `async:`)
   are not applied. `Recorder::Tape` asks the record instance for
@@ -182,6 +201,10 @@ The gem is under active maintenance and these defects are known as of 1.2.3:
   `Recorder.store`, which `Recorder::Manager` drives.
 - Collection associations are never recorded. `associations:` handles only
   singular associations; a `has_many` reflection is skipped without a warning.
+- A `destroy` revision carries a `changes` key describing the record's last
+  *update*. `destroy` does not clear `saved_changes`, and `data` is built the
+  same way for every event. The `attributes` snapshot is the accurate record of
+  what was deleted.
 
 ## Development
 

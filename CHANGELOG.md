@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- README coverage of what a revision's `data` holds: the complete attribute
+  snapshot on every event, when `changes` and `associations` are present, and
+  which events record a revision at all. No behaviour changes — the snapshot is
+  what the gem has always written, and it is now written down.
+- A known issue for the `changes` key on `destroy` revisions, which describes
+  the record's last update rather than the deletion.
+
 ## [1.3.0] - 2026-09-16
 
 ### Added
