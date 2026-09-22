@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0]
+
 ### Added
 
 - README coverage of what a revision's `data` holds: the complete attribute
@@ -134,7 +136,8 @@ Releases at and before 1.1.1 predate this changelog. See the
 [commit history](https://github.com/jetrockets/recorder/commits/master) for
 details.
 
-[Unreleased]: https://github.com/jetrockets/recorder/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/jetrockets/recorder/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/jetrockets/recorder/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/jetrockets/recorder/compare/v1.2.3...v1.3.0
 [1.2.3]: https://github.com/jetrockets/recorder/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/jetrockets/recorder/compare/v1.2.1...v1.2.2
