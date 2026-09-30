@@ -73,6 +73,7 @@ Recorder supports the following options:
  * `only: [array]` - only these attributes are logged, other attributes are ingored;
  * `associations: {hash} (hash)` - allows to set what associations will be logged alongside with the model. For each association you can also set ignore and only options;
  * `async: bool` - a logging strategy (true - asynchronous, false - synchronous).
+ * `delay: duration` - how long after the save an asynchronous revision is written. Defaults to two seconds.
  * `changes: Proc | Symbol` - extra entries to merge into a revision's `changes`. A Proc
    is evaluated on the record, a Symbol names a method on it; both receive the event
    (`:create`, `:update` or `:destroy`) and return a hash of `name => [old, new]`, or
@@ -94,8 +95,9 @@ a key, define `previous_<key>`/`next_<key>` on the model's changeset class, and
 pick a name that `Recorder::Changeset` does not already answer to.
 
 A model that needs to decide its options per record can define
-`recorder_options` as an instance method. It takes precedence over what was
-passed to `recorder`:
+`recorder_options` as an instance method. It replaces what was passed to
+`recorder` rather than merging with it, so it has to return every option the
+model needs:
 
 ```ruby
 def recorder_options
@@ -215,7 +217,7 @@ as `"#{model}Changeset"` — or point at another one with a
 
 ## Known issues
 
-The gem is under active maintenance and these defects are known as of 1.3.0:
+The gem is under active maintenance and these defects are known:
 
 - A subclass does not inherit the options its parent passed to `recorder`. An
   STI subclass that declares nothing records as if no options were given.

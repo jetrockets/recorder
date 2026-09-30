@@ -32,6 +32,32 @@ RSpec.describe Instrument do
     end
   end
 
+  describe 'only:' do
+    # A throwaway model: `.recorder` registers callbacks, which outlive an example.
+    let(:model) do
+      stub_const('NamedInstrument', Class.new(ApplicationRecord) { self.table_name = 'securities' }).tap do |model|
+        model.include(Recorder::Observer)
+        model.recorder only: %i[name]
+      end
+    end
+    let!(:named) { model.create!(name: 'Facebook', identifier: 'FB') }
+
+    it 'keeps every other attribute out of the snapshot' do
+      expect(last_revision(named).data['attributes']).to eq('name' => 'Facebook')
+    end
+
+    it 'records nothing when only other attributes changed' do
+      expect { named.update!(identifier: 'META') }
+        .not_to change(Recorder::Revision, :count)
+    end
+
+    it 'records a change to a listed attribute' do
+      named.update!(name: 'Meta', identifier: 'META')
+
+      expect(last_revision(named).data['changes']).to eq('name' => %w[Facebook Meta])
+    end
+  end
+
   describe 'changes:' do
     it 'merges the custom entries into the revision' do
       expect(last_revision.data['changes']).to include('ticker' => [nil, 'FB'])

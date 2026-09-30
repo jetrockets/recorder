@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Breaking.** The options passed to `recorder` — `ignore:`, `only:`,
-  `associations:`, `async:` and `changes:` — are applied again. Since
+  `associations:`, `async:`, `delay:` and `changes:` — are applied again. Since
   1.2.2 they were stored on the class while the recorder read them off the
   record, so every model fell back to the global configuration. Models that
   declare options now record what they asked for, which changes existing audit
@@ -23,7 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `async: true` moves the write to Sidekiq, and raises `NameError` on save in
     an app that does not have Sidekiq.
 
-  A `recorder_options` instance method on the model still takes precedence.
+  A `recorder_options` instance method on the model still takes precedence, and
+  replaces the declared options rather than merging with them.
 
 ## [1.4.0]
 

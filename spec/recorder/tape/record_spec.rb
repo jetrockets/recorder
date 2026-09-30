@@ -35,6 +35,14 @@ RSpec.describe Recorder::Tape::Record do
       enqueued.last
     end
 
+    # A throwaway model: `.recorder` registers callbacks, which outlive an example.
+    def build_model(options)
+      model = stub_const('AsyncInstrument', Class.new(ApplicationRecord) { self.table_name = 'securities' })
+      model.include(Recorder::Observer)
+      model.recorder(options)
+      model
+    end
+
     it 'enqueues instead of writing a revision row' do
       expect { Security.create!(name: 'Facebook', identifier: 'FB') }
         .not_to change(Recorder::Revision, :count)
@@ -48,14 +56,6 @@ RSpec.describe Recorder::Tape::Record do
     end
 
     context 'when the model declares its own options' do
-      # A throwaway model: `.recorder` registers callbacks, which outlive an example.
-      def build_model(options)
-        model = stub_const('AsyncInstrument', Class.new(ApplicationRecord) { self.table_name = 'securities' })
-        model.include(Recorder::Observer)
-        model.recorder(options)
-        model
-      end
-
       it 'enqueues with the delay the model declares' do
         build_model(delay: 10.seconds).create!(name: 'Facebook', identifier: 'FB')
 
@@ -76,9 +76,7 @@ RSpec.describe Recorder::Tape::Record do
       before { Recorder.config.async = false }
 
       it 'enqueues instead of writing a revision row' do
-        model = stub_const('AsyncInstrument', Class.new(ApplicationRecord) { self.table_name = 'securities' })
-        model.include(Recorder::Observer)
-        model.recorder(async: true)
+        model = build_model(async: true)
 
         expect { model.create!(name: 'Facebook', identifier: 'FB') }
           .not_to change(Recorder::Revision, :count)
