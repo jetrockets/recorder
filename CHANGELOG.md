@@ -14,7 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Every call used to register the create, update and destroy callbacks anew, so
   a model that declared it twice wrote two identical revisions per event. A
   subclass that needs different options defines a `recorder_options` instance
-  method instead. The declared options are frozen, since subclasses share them.
+  method instead.
+- **Breaking.** The options passed to `recorder` are stored frozen, since
+  subclasses share them. A `recorder_options` override that changes `super` in
+  place, such as `super[:ignore] << :x` or `super.merge!(...)`, now raises
+  `FrozenError` when the record is saved, not when the class loads. Build a new
+  hash instead: `super.merge(...)`, `[*super[:ignore], :x]`.
 
 ### Fixed
 

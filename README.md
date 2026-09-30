@@ -121,8 +121,10 @@ class Bond < Instrument
 end
 ```
 
-`super` returns the options exactly as the parent declared them, frozen, and
-the result is applied as if it had been declared. The usual rules hold: `only:`
+`super` returns the options exactly as the parent declared them, and frozen:
+build a new hash, such as `super.merge(...)` or `[*super[:ignore], :coupon]`,
+since changing it in place raises `FrozenError` when the record is saved. The
+result is applied as if it had been declared. The usual rules hold: `only:`
 takes precedence over `ignore:`, so adding to `ignore:` has no effect under a
 parent that declares `only:`, and an `ignore:` replaces `Recorder.config.ignore`,
 so a subclass adding one under a parent that declares none has to repeat the

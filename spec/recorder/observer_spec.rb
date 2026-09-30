@@ -70,6 +70,15 @@ RSpec.describe Recorder::Observer do
       end
     end
 
+    it 'keeps options declared with indifferent access' do
+      options = {ignore: %i[identifier updated_at]}.with_indifferent_access
+      model = securities_model('IndifferentInstrument') { recorder(options) }
+      record = model.create!(name: 'Facebook', identifier: 'FB')
+
+      snapshot = Recorder::Revision.where(item_id: record.id).last.data['attributes']
+      expect(snapshot.keys).not_to include('identifier', 'updated_at')
+    end
+
     it 'leaves the values passed to .recorder unfrozen' do
       ignore = %i[identifier]
       securities_model('SharedIgnore') { recorder ignore: ignore }
@@ -83,6 +92,16 @@ RSpec.describe Recorder::Observer do
   end
 
   describe '#recorder_options' do
+    it 'raises on save when an override changes its parent’s options in place' do
+      subclass = stub_const('Strip', Class.new(Instrument) do
+        def recorder_options
+          super.tap { |options| options[:ignore] << :settle_days }
+        end
+      end)
+
+      expect { subclass.create!(name: 'Treasury', identifier: 'UST') }.to raise_error(FrozenError)
+    end
+
     it 'lets a subclass build its own options on its parent’s' do
       subclass = stub_const('Bill', Class.new(Instrument) do
         def recorder_options

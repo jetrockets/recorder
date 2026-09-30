@@ -63,7 +63,7 @@ module Recorder
       # A frozen copy: the options are shared by every subclass.
       def recorder_deep_freeze(value)
         case value
-        when Hash then value.to_h { |key, item| [key, recorder_deep_freeze(item)] }.freeze
+        when Hash then value.transform_values { |item| recorder_deep_freeze(item) }.freeze
         when Array then value.map { |item| recorder_deep_freeze(item) }.freeze
         else value
         end
