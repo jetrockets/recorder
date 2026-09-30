@@ -105,6 +105,22 @@ def recorder_options
 end
 ```
 
+#### Subclasses
+
+A subclass, STI or not, records under the options its parent passed to
+`recorder` and needs no declaration of its own. `recorder` can be called once per
+class hierarchy: calling it again, in the same class or in a subclass, raises
+`ArgumentError`. A subclass that needs different options defines
+`recorder_options`, and can build on the parent's with `super`:
+
+```ruby
+class Bond < Instrument
+  def recorder_options
+    super.merge(ignore: [*super[:ignore], :coupon])
+  end
+end
+```
+
 ### Global configuration
 
 ```ruby
@@ -219,8 +235,6 @@ as `"#{model}Changeset"` — or point at another one with a
 
 The gem is under active maintenance and these defects are known:
 
-- A subclass does not inherit the options its parent passed to `recorder`. An
-  STI subclass that declares nothing records as if no options were given.
 - `async: true` needs Sidekiq in the host app. Without it, saving a record
   raises `NameError: uninitialized constant Recorder::Sidekiq`.
 - `Recorder.enabled=` does not switch recording off. It writes to
