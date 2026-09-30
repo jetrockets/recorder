@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Breaking.** The options passed to `recorder` — `ignore:`, `only:`,
+  `associations:`, `async:`, `delay:` and `changes:` — are applied again. Since
+  1.2.2 they were stored on the class while the recorder read them off the
+  record, so every model fell back to the global configuration. Models that
+  declare options now record what they asked for, which changes existing audit
+  trails going forward:
+  - `only:` and `ignore:` shrink the snapshot, and an update touching only
+    excluded attributes no longer writes a revision.
+  - A per-model `ignore:` replaces `Recorder.config.ignore` for that model, so
+    globally ignored attributes it does not repeat start being recorded.
+  - `associations:` adds an `associations` key.
+  - `async: true` moves the write to Sidekiq, and raises `NameError` on save in
+    an app that does not have Sidekiq.
+
+  A `recorder_options` instance method on the model still takes precedence, and
+  replaces the declared options rather than merging with them.
+
 ## [1.4.0]
 
 ### Added

@@ -35,6 +35,14 @@ RSpec.describe Recorder::Tape::Record do
       enqueued.last
     end
 
+    # A throwaway model: `.recorder` registers callbacks, which outlive an example.
+    def build_model(options)
+      model = stub_const('AsyncInstrument', Class.new(ApplicationRecord) { self.table_name = 'securities' })
+      model.include(Recorder::Observer)
+      model.recorder(options)
+      model
+    end
+
     it 'enqueues instead of writing a revision row' do
       expect { Security.create!(name: 'Facebook', identifier: 'FB') }
         .not_to change(Recorder::Revision, :count)
@@ -47,14 +55,34 @@ RSpec.describe Recorder::Tape::Record do
       expect(record_and_capture.first.to_f).to eq(2.0)
     end
 
-    # `Tape` reads the delay off the options it is handed. Per-model `recorder`
-    # options do not reach it, so `record` is called directly here.
-    it 'enqueues with the delay the options carry' do
-      params = {event: 'create', item_type: 'Security', item_id: 1, data: {}}
+    context 'when the model declares its own options' do
+      it 'enqueues with the delay the model declares' do
+        build_model(delay: 10.seconds).create!(name: 'Facebook', identifier: 'FB')
 
-      Recorder::Tape.record(params, delay: 10.seconds)
+        expect(enqueued.last.first.to_f).to eq(10.0)
+      end
 
-      expect(enqueued.last.first.to_f).to eq(10.0)
+      it 'writes inline when the model declares async: false' do
+        model = build_model(async: false)
+
+        expect { model.create!(name: 'Facebook', identifier: 'FB') }
+          .to change(Recorder::Revision, :count).by(1)
+
+        expect(enqueued).to be_empty
+      end
+    end
+
+    context 'when only the model asks for async' do
+      before { Recorder.config.async = false }
+
+      it 'enqueues instead of writing a revision row' do
+        model = build_model(async: true)
+
+        expect { model.create!(name: 'Facebook', identifier: 'FB') }
+          .not_to change(Recorder::Revision, :count)
+
+        expect(enqueued.size).to eq(1)
+      end
     end
 
     it 'passes the data column pre-serialized as a JSON string' do

@@ -21,8 +21,14 @@ module Recorder
       recorder_dirty? && Recorder.store.recorder_enabled?
     end
 
+    # Options passed to `.recorder`. A model may define this itself to decide
+    # them per record.
+    def recorder_options
+      self.class.recorder_options
+    end
+
     class_methods do
-      define_method :recorder_options do
+      def recorder_options
         @recorder_options ||= {}
       end
 

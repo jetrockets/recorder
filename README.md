@@ -73,6 +73,7 @@ Recorder supports the following options:
  * `only: [array]` - only these attributes are logged, other attributes are ingored;
  * `associations: {hash} (hash)` - allows to set what associations will be logged alongside with the model. For each association you can also set ignore and only options;
  * `async: bool` - a logging strategy (true - asynchronous, false - synchronous).
+ * `delay: duration` - how long after the save an asynchronous revision is written. Defaults to two seconds.
  * `changes: Proc | Symbol` - extra entries to merge into a revision's `changes`. A Proc
    is evaluated on the record, a Symbol names a method on it; both receive the event
    (`:create`, `:update` or `:destroy`) and return a hash of `name => [old, new]`, or
@@ -93,10 +94,10 @@ not an attribute, and any value that is not a two-element `[old, new]` pair. To 
 a key, define `previous_<key>`/`next_<key>` on the model's changeset class, and
 pick a name that `Recorder::Changeset` does not already answer to.
 
-These per-model options, `changes:` included, do not reach the recorder yet — see [Known issues](#known-issues).
-Until they do, every observed model records a full attribute snapshot, filtered
-only by the global `Recorder.config.ignore`. Options declared as an instance
-method are read, so that is the way to opt into any of them today:
+A model that needs to decide its options per record can define
+`recorder_options` as an instance method. It replaces what was passed to
+`recorder` rather than merging with it, so it has to return every option the
+model needs:
 
 ```ruby
 def recorder_options
@@ -216,13 +217,12 @@ as `"#{model}Changeset"` — or point at another one with a
 
 ## Known issues
 
-The gem is under active maintenance and these defects are known as of 1.3.0:
+The gem is under active maintenance and these defects are known:
 
-- The per-model options above (`ignore:`, `only:`, `associations:`, `async:`)
-  are not applied. `Recorder::Tape` asks the record instance for
-  `recorder_options`, but `Recorder::Observer` defines that method on the class,
-  so the lookup always falls back to `{}` — every observed model records a full
-  attribute snapshot, synchronously. Global configuration is unaffected.
+- A subclass does not inherit the options its parent passed to `recorder`. An
+  STI subclass that declares nothing records as if no options were given.
+- `async: true` needs Sidekiq in the host app. Without it, saving a record
+  raises `NameError: uninitialized constant Recorder::Sidekiq`.
 - `Recorder.enabled=` does not switch recording off. It writes to
   `Recorder.config`, which nothing on the recording path reads — the gates are in
   `Recorder.store`, which `Recorder::Manager` drives.
