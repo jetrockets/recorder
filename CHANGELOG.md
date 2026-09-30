@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking.** `recorder` can be called once per class hierarchy, and calling
+  it again, in the same class, a subclass or a parent, raises `ArgumentError`.
+  Every call used to register the create, update and destroy callbacks anew, so
+  a model that declared it twice wrote two identical revisions per event. A
+  subclass that needs different options defines a `recorder_options` instance
+  method instead. The declared options are frozen, since subclasses share them.
+
 ### Fixed
 
 - **Breaking.** The options passed to `recorder` — `ignore:`, `only:`,
@@ -27,15 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   replaces the declared options rather than merging with them.
 - A subclass, STI included, records under the options its parent passed to
   `recorder`. It used to record as if no options were given.
-
-### Changed
-
-- **Breaking.** `recorder` can be called once per class hierarchy, and calling
-  it again, in the same class or in a subclass, raises `ArgumentError`. Every
-  call used to register the create, update and destroy callbacks anew, so a
-  model that declared it twice wrote two identical revisions per event. A
-  subclass that needs different options defines a `recorder_options` instance
-  method instead.
 
 ## [1.4.0]
 

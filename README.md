@@ -109,17 +109,24 @@ end
 
 A subclass, STI or not, records under the options its parent passed to
 `recorder` and needs no declaration of its own. `recorder` can be called once per
-class hierarchy: calling it again, in the same class or in a subclass, raises
-`ArgumentError`. A subclass that needs different options defines
+class hierarchy: calling it again, in the same class, a subclass or a parent,
+raises `ArgumentError`. A subclass that needs different options defines
 `recorder_options`, and can build on the parent's with `super`:
 
 ```ruby
 class Bond < Instrument
   def recorder_options
-    super.merge(ignore: [*super[:ignore], :coupon])
+    super.merge(async: false)
   end
 end
 ```
+
+`super` returns the options exactly as the parent declared them, frozen, and
+the result is applied as if it had been declared. The usual rules hold: `only:`
+takes precedence over `ignore:`, so adding to `ignore:` has no effect under a
+parent that declares `only:`, and an `ignore:` replaces `Recorder.config.ignore`,
+so a subclass adding one under a parent that declares none has to repeat the
+global list.
 
 ### Global configuration
 
@@ -235,6 +242,10 @@ as `"#{model}Changeset"` — or point at another one with a
 
 The gem is under active maintenance and these defects are known:
 
+- Revisions of an STI subclass are stored with the subclass name in
+  `item_type`, while `revisions` looks them up by the base class name, so
+  `revisions` returns nothing on a subclass instance. Query
+  `Recorder::Revision` by `item_id` and the subclass name instead.
 - `async: true` needs Sidekiq in the host app. Without it, saving a record
   raises `NameError: uninitialized constant Recorder::Sidekiq`.
 - `Recorder.enabled=` does not switch recording off. It writes to

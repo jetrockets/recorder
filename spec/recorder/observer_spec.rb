@@ -29,6 +29,17 @@ RSpec.describe Recorder::Observer do
         .to raise_error(ArgumentError, /already declared in TwiceDeclared/)
     end
 
+    it 'raises when a parent declares it after a subclass' do
+      parent = securities_model('LateParent')
+      child = stub_const('EarlyChild', Class.new(parent) { recorder only: %i[name] })
+
+      aggregate_failures do
+        expect { parent.recorder ignore: %i[identifier] }
+          .to raise_error(ArgumentError, /already declared in EarlyChild/)
+        expect { child.create!(name: 'Facebook', identifier: 'FB') }.to change(Recorder::Revision, :count).by(1)
+      end
+    end
+
     it 'leaves the parent alone when a subclass declares it first' do
       parent = securities_model('Unrecorded')
       child = stub_const('RecordedChild', Class.new(parent) { recorder only: %i[name] })
@@ -49,6 +60,21 @@ RSpec.describe Recorder::Observer do
         expect(model.recorder_options).to eq({})
         expect { model.create!(name: 'Facebook', identifier: 'FB') }.not_to change(Recorder::Revision, :count)
       end
+    end
+
+    it 'is frozen all the way down, since subclasses share it' do
+      aggregate_failures do
+        expect(Instrument.recorder_options).to be_frozen
+        expect(Instrument.recorder_options[:ignore]).to be_frozen
+        expect(Instrument.recorder_options[:associations][:guard][:only]).to be_frozen
+      end
+    end
+
+    it 'leaves the values passed to .recorder unfrozen' do
+      ignore = %i[identifier]
+      securities_model('SharedIgnore') { recorder ignore: ignore }
+
+      expect(ignore).not_to be_frozen
     end
 
     it 'cannot be assigned from outside the class' do

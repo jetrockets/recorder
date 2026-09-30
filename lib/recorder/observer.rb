@@ -14,25 +14,6 @@ module Recorder
       private_class_method :recorder_options=
     end
 
-    # Registered by `.recorder`, and inherited by subclasses along with the options.
-    module Callbacks
-      extend ::ActiveSupport::Concern
-
-      included do
-        after_create do
-          Recorder::Tape.new(self).record_create if recorder_record?
-        end
-
-        after_update do
-          Recorder::Tape.new(self).record_update if recorder_record?
-        end
-
-        after_destroy do
-          Recorder::Tape.new(self).record_destroy if recorder_record?
-        end
-      end
-    end
-
     def recorder_dirty?
       return @recorder_dirty if defined?(@recorder_dirty)
 
@@ -50,17 +31,42 @@ module Recorder
     end
 
     class_methods do
+      # Stores the options, which subclasses inherit, and registers the callbacks
+      # once for the whole class hierarchy.
       def recorder(options = {})
-        if self < Callbacks
-          declared_by = ancestors.reverse.find { |ancestor| ancestor.is_a?(Class) && ancestor < Callbacks }
-          raise ArgumentError, "`recorder` is already declared in #{declared_by} and can be declared once " \
-            "per class hierarchy. To change the options for #{self}, define a `recorder_options` instance method."
+        declared_in = [*ancestors, *descendants].find { |klass| klass.instance_variable_defined?(:@recorder_declared) }
+        if declared_in
+          raise ArgumentError, "`recorder` is already declared in #{declared_in} and can be declared once per " \
+            'class hierarchy. Where a class needs other options, define a `recorder_options` instance method.'
         end
 
         Recorder::Tape::Data.validate_changes_option!(options[:changes])
 
-        self.recorder_options = options
-        include Callbacks
+        @recorder_declared = true
+        self.recorder_options = recorder_deep_freeze(options)
+
+        after_create do
+          Recorder::Tape.new(self).record_create if recorder_record?
+        end
+
+        after_update do
+          Recorder::Tape.new(self).record_update if recorder_record?
+        end
+
+        after_destroy do
+          Recorder::Tape.new(self).record_destroy if recorder_record?
+        end
+      end
+
+      private
+
+      # A frozen copy: the options are shared by every subclass.
+      def recorder_deep_freeze(value)
+        case value
+        when Hash then value.to_h { |key, item| [key, recorder_deep_freeze(item)] }.freeze
+        when Array then value.map { |item| recorder_deep_freeze(item) }.freeze
+        else value
+        end
       end
     end
   end
