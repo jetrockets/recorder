@@ -30,6 +30,28 @@ RSpec.describe Instrument do
 
       expect(last_revision.data['changes']).to eq('name' => %w[Facebook Meta])
     end
+
+    it 'keeps the ignored attributes out of a destroy revision' do
+      instrument.destroy!
+
+      revision = last_revision
+      aggregate_failures do
+        expect(revision.event).to eq('destroy')
+        expect(revision.data['attributes'].keys).not_to include('identifier', 'updated_at')
+      end
+    end
+
+    it 'replaces the global ignore list rather than adding to it' do
+      Recorder.config.ignore = %i[settle_days]
+
+      security = Security.create!(name: 'Facebook', identifier: 'FB')
+      instrument.update!(name: 'Meta')
+
+      aggregate_failures do
+        expect(last_revision(security).data['attributes']).not_to have_key('settle_days')
+        expect(last_revision.data['attributes']).to have_key('settle_days')
+      end
+    end
   end
 
   describe 'only:' do
