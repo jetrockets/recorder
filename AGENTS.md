@@ -6,6 +6,22 @@ This file provides guidance to coding agents when working with code in this repo
 
 `recorder` is a Ruby gem, not an application. It hooks into a host Rails app and writes a `recorder_revisions` row each time an observed ActiveRecord model is created, updated or destroyed. The only Rails app in the repo is `spec/dummy`, which exists for the specs.
 
+## Invariants
+
+Recorder is an audit trail. Host apps build compliance, support and debugging features on top of it and assume the history is complete and correct. Every change to the gem has to keep these guarantees:
+
+1. **No lost actions.** Every create, update and destroy of an observed record produces a revision. The only ways to skip one are the explicit opt-outs: the `only:` and `ignore:` options, `Recorder.config.ignore`, and `recorder_disabled!`. An update that touches nothing but ignored attributes is the one case that writes no revision.
+2. **History rebuilds the record.** Replaying a record's revisions yields its final state, ignored attributes aside. Each revision carries enough to stand on its own: a snapshot of the recorded attributes plus the changes that led to it.
+3. **No phantom actions.** A revision describes a change that was really persisted. A change that was rolled back leaves no revision behind.
+4. **Revisions are append-only.** The gem creates revisions and never updates or deletes them. Cleaning up history is the host app's decision.
+5. **Attribution belongs to the moment of the action.** `user_id`, `ip`, `action_date` and `meta` come from the request that made the change, no matter when the row is written.
+6. **Sync and async record the same thing.** `async:` changes when the revision is written, never what it contains or whether it exists.
+7. **History stays in order.** The revisions of one record can be sorted into the order the changes happened.
+8. **Old revisions stay readable.** Rows written by earlier versions of the gem live in host databases forever. The shape of `data` (`attributes`, `changes`, `associations`) and the meaning of each column are a public contract: extend them, do not rename, repurpose or drop them.
+9. **Recording does not alter the host app.** Observing a model never changes the record, its attributes or the outcome of the save. When a revision cannot be written, that surfaces as an error; it is never swallowed.
+
+A change that touches how revisions are built or written needs a spec proving the affected guarantees still hold. If a change cannot keep one of them, stop and raise it with the maintainers instead of trading it away.
+
 ## Commands
 
 ```bash
