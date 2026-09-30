@@ -34,6 +34,10 @@ jobs:
           - {ruby: '3.1', rails: '8.0'}
           - {ruby: '3.0', rails: '8.1'}
           - {ruby: '3.1', rails: '8.1'}
+        include:
+          # lib/ has no Ruby- or Rails-specific branches, so one cell's
+          # coverage stands for the whole matrix.
+          - {ruby: '3.4', rails: '8.1', coverage: true}
 
     services:
       postgres:
@@ -62,6 +66,22 @@ jobs:
           bundler-cache: true
 
       - run: bundle exec rspec
+
+      - name: Write the coverage summary
+        if: matrix.coverage
+        run: |
+          ruby -rjson -e '
+            result = JSON.parse(File.read("coverage/.last_run.json"))["result"]
+            puts "### Coverage", "", "| Lines | Branches |", "| --- | --- |",
+                 "| #{result["line"]}% | #{result["branch"]}% |"
+          ' >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.coverage
+        with:
+          name: coverage
+          path: coverage/
+          include-hidden-files: true
 
   lint:
     name: Lint

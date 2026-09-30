@@ -36,7 +36,7 @@ bundle exec appraisal install              # once, generates gemfiles/*.gemfile.
 bundle exec appraisal <name> rspec         # suite against one Rails version; names are in Appraisals
 ```
 
-The specs need a running PostgreSQL (revisions use `jsonb` and `inet`). Connection settings come from `RECORDER_DB_HOST`, `RECORDER_DB_PORT`, `RECORDER_DB_USERNAME`, `RECORDER_DB_PASSWORD` and `RECORDER_DB_NAME`; the defaults are in `spec/dummy/config/database.yml`. The database must exist; `spec/rails_helper.rb` runs the dummy app's migrations itself on every run.
+The specs need a running PostgreSQL (revisions use `jsonb` and `inet`). Connection settings come from `RECORDER_DB_HOST`, `RECORDER_DB_PORT`, `RECORDER_DB_USERNAME`, `RECORDER_DB_PASSWORD` and `RECORDER_DB_NAME`; the defaults are in `spec/dummy/config/database.yml`. The database must exist; `spec/rails_helper.rb` runs the dummy app's migrations itself on every run. Every run also writes a SimpleCov line and branch coverage report to `coverage/index.html`.
 
 CI runs the suite across a Ruby × Rails matrix (`.github/workflows/ci.yml`) plus rubocop. Code has to work on every combination in it, so check version-specific APIs against the oldest supported Ruby and Rails in `recorder.gemspec` before using them.
 
