@@ -154,6 +154,34 @@ RSpec.describe Recorder::Tape::Data do
         )
       end
     end
+
+    context 'when Recorder.config.ignore is set' do
+      before { Recorder.config.ignore = %i[name settle_days pricing_factor created_at updated_at guard_id] }
+
+      context 'and options contain neither :only nor :ignore' do
+        let(:options) { {} }
+
+        it 'leaves out the globally ignored attributes' do
+          expect(attributes_for).to eq(attributes: {id: nil, type: 'type', identifier: 'identifier'})
+        end
+      end
+
+      context 'and options[:ignore] is present' do
+        let(:options) { {ignore: %i[type settle_days pricing_factor created_at updated_at guard_id]} }
+
+        it 'applies only the per-model list' do
+          expect(attributes_for).to eq(attributes: {id: nil, name: 'name', identifier: 'identifier'})
+        end
+      end
+
+      context 'and options[:only] is present' do
+        let(:options) { {only: %i[type name]} }
+
+        it 'keeps a listed attribute the global list ignores' do
+          expect(attributes_for).to eq(attributes: {type: 'type', name: 'name'})
+        end
+      end
+    end
   end
 
   describe '#changes_for' do

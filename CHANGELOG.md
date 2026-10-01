@@ -29,7 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `only:` and `ignore:` shrink the snapshot, and an update touching only
     excluded attributes no longer writes a revision.
   - A per-model `ignore:` replaces `Recorder.config.ignore` for that model, so
-    globally ignored attributes it does not repeat start being recorded.
+    globally ignored attributes it does not repeat start being recorded. The
+    same holds for `only:`: an attribute it lists is recorded even if the
+    global list ignores it. To keep the global list, repeat it, as in
+    `ignore: [*Recorder.config.ignore, :token]`.
   - `associations:` adds an `associations` key.
   - `async: true` moves the write to Sidekiq, and raises `NameError` on save in
     an app that does not have Sidekiq.
