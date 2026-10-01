@@ -18,11 +18,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `to_prepare` block on a class that is not reloaded, raises too; it used to
   add another revision per event on every run.
 
+### Removed
+
+- **Breaking.** Asynchronous recording: the `async:` and `delay:` options,
+  `Recorder.config.async`, `Recorder.config.sidekiq_options` and
+  `Recorder::Sidekiq::RevisionsWorker`, with the railtie that loaded it. Every
+  revision is written in the save transaction, so the record and its revision
+  commit or roll back together. The job was pushed from inside that transaction,
+  so a save that rolled back still wrote a revision once the job ran, and the
+  revision's `created_at` and `id` followed the job rather than the change.
+  `async:` and `delay:` passed to `recorder` have no effect, as they had none
+  from 1.2.2 on; remove them. Setting `Recorder.config.async` or
+  `Recorder.config.sidekiq_options` raises `NoMethodError`. An app that set
+  `Recorder.config.async = true` should set it to `false` on 1.x first and let
+  the jobs already pushed finish, the scheduled and retrying ones included,
+  before upgrading: a job left behind fails once the worker class is gone, and
+  its revision is never written.
+
 ### Fixed
 
 - **Breaking.** The options passed to `recorder` — `ignore:`, `only:`,
-  `associations:`, `async:`, `delay:` and `changes:` — are applied again. Since
-  1.2.2 they were stored on the class while the recorder read them off the
+  `associations:` and `changes:` — are applied again. Since 1.2.2 they were stored on the class while the recorder read them off the
   record, so every model fell back to the global configuration. Models that
   declare options now record what they asked for, which changes existing audit
   trails going forward:
@@ -34,8 +50,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     global list ignores it. To keep the global list, repeat it, as in
     `ignore: [*Recorder.config.ignore, :token]`.
   - `associations:` adds an `associations` key.
-  - `async: true` moves the write to Sidekiq, and raises `NameError` on save in
-    an app that does not have Sidekiq.
 
   A `recorder_options` instance method on the model still takes precedence, and
   replaces the declared options rather than merging with them.

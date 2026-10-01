@@ -9,7 +9,6 @@ require 'recorder/manager'
 require 'recorder/observer'
 
 require 'recorder/rails/controller_concern'
-require 'recorder/rails/railtie' if defined? ::Rails::Railtie
 
 module Recorder
   class << self
@@ -64,9 +63,5 @@ module Recorder
     end
   end
 end
-
-# if defined?(Sidekiq)
-#   require 'recorder/sidekiq/revisions_worker'
-# end
 
 require 'recorder/revision'
