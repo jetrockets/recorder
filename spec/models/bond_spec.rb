@@ -7,7 +7,15 @@ RSpec.describe Bond do
   let!(:bond) { described_class.create!(name: 'Treasury', identifier: 'UST') }
 
   def revisions
-    Recorder::Revision.where(item_id: bond.id).order(:id)
+    bond.revisions.order(:id)
+  end
+
+  it 'finds its revisions through the revisions association' do
+    expect(revisions.pluck(:event)).to eq(%w[create])
+  end
+
+  it 'loads itself as the item of its revisions' do
+    expect(revisions.last.item).to be_an_instance_of(described_class).and eq(bond)
   end
 
   it 'inherits the options declared on Instrument' do

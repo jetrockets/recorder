@@ -217,6 +217,27 @@ since the row it describes is gone.
 An `update` records a revision only when the record or one of its recorded
 associations reports a change; `create` and `destroy` always record one.
 
+`item_type` holds the model's `polymorphic_name`, the value Active Record
+writes to any polymorphic association, so `revisions`, `includes(:revisions)`
+and `Recorder::Revision.where(item: record)` all find a record's revisions. For
+an STI subclass that is the base class: a `Bond < Instrument` is recorded as
+`"Instrument"`, `revision.item` loads it back as a `Bond`, and the subclass name
+is in the snapshot's inheritance column (`type` by default) unless `only:` or
+`ignore:` leaves it out.
+
+Revisions written before 2.0.0 hold the subclass name, so `revisions` does not
+find them. Rewriting them is up to the app; this does it for every subclass
+whose class still exists:
+
+```ruby
+Recorder::Revision.distinct.pluck(:item_type).each do |type|
+  model = type.safe_constantize
+  next unless model.respond_to?(:polymorphic_name) && model.polymorphic_name != type
+
+  Recorder::Revision.where(item_type: type).update_all(item_type: model.polymorphic_name)
+end
+```
+
 `#item_changeset` wraps `data['changes']` in a `Recorder::Changeset`, which reads
 the values back as the model's own types:
 
@@ -246,10 +267,6 @@ as `"#{model}Changeset"` — or point at another one with a
 
 The gem is under active maintenance and these defects are known:
 
-- Revisions of an STI subclass are stored with the subclass name in
-  `item_type`, while `revisions` looks them up by the base class name, so
-  `revisions` returns nothing on a subclass instance. Query
-  `Recorder::Revision` by `item_id` and the subclass name instead.
 - `async: true` needs Sidekiq in the host app. Without it, saving a record
   raises `NameError: uninitialized constant Recorder::Sidekiq`.
 - `Recorder.enabled=` does not switch recording off. It writes to

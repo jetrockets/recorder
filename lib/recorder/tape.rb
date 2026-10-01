@@ -47,7 +47,9 @@ module Recorder
     def record(params)
       Recorder::Tape.record(
         {
-          item_type: item.class.to_s,
+          # The value `has_many :revisions` looks rows up by: the base class
+          # of an STI subclass.
+          item_type: item.class.polymorphic_name,
           item_id: item.id,
           **params
         },

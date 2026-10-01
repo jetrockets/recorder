@@ -3,6 +3,34 @@
 require 'rails_helper'
 
 RSpec.describe Recorder::Tape do
+  # `item_type` is the model's polymorphic name, as Active Record writes it for
+  # any polymorphic association.
+  describe 'item_type' do
+    def item_type_of(record)
+      Recorder::Revision.where(item_id: record.id).last.item_type
+    end
+
+    it 'is the class name of a model without STI' do
+      expect(item_type_of(Security.create!(name: 'Facebook', identifier: 'FB'))).to eq('Security')
+    end
+
+    it 'is the base class name of an STI subclass' do
+      expect(item_type_of(Bond.create!(name: 'Treasury', identifier: 'UST'))).to eq('Instrument')
+    end
+
+    it 'is the base class name when only the subclass records' do
+      parent = stub_const('Unobserved', Class.new(ApplicationRecord) { self.table_name = 'securities' })
+      child = stub_const('Observed', Class.new(parent) { include Recorder::Observer })
+      child.recorder
+      record = child.create!(name: 'Facebook', identifier: 'FB')
+
+      aggregate_failures do
+        expect(item_type_of(record)).to eq('Unobserved')
+        expect(record.revisions.count).to eq(1)
+      end
+    end
+  end
+
   # Options are declared on the class and read off the record.
   describe '#recorder_options' do
     subject(:options) { described_class.new(item).send(:recorder_options) }

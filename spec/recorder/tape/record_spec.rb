@@ -85,6 +85,12 @@ RSpec.describe Recorder::Tape::Record do
       end
     end
 
+    it 'enqueues an STI subclass under its base class, as an inline write stores it' do
+      Bond.create!(name: 'Treasury', identifier: 'UST')
+
+      expect(enqueued.last.last['item_type']).to eq('Instrument')
+    end
+
     it 'passes the data column pre-serialized as a JSON string' do
       expect(record_and_capture.last['data']).to be_a(String)
     end
