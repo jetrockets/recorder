@@ -49,6 +49,22 @@ RSpec.describe Recorder::Tape do
       end
     end
 
+    context 'when a subclass defines recorder_options as a private method' do
+      let(:item) do
+        stub_const('PrivateNote', Class.new(Instrument) do
+          private
+
+          def recorder_options
+            {only: %i[name]}
+          end
+        end).new
+      end
+
+      it 'uses it' do
+        expect(options).to eq(only: %i[name])
+      end
+    end
+
     context 'when the model defines recorder_options before including Observer' do
       let(:model) do
         stub_const('EarlyInstrument', Class.new(ApplicationRecord) do

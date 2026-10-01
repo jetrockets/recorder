@@ -105,6 +105,33 @@ def recorder_options
 end
 ```
 
+#### Subclasses
+
+A subclass, STI or not, records under the options its parent passed to
+`recorder` and needs no declaration of its own. `recorder` can be called once per
+class hierarchy, in the topmost class that records: calling it again, in the same
+class, a subclass or a parent, raises `ArgumentError`. So does a declaration that
+runs twice on one class, such as one in a `to_prepare` block on a class that is
+not reloaded. A subclass that needs different options defines
+`recorder_options`, public or private, and can build on the parent's with `super`:
+
+```ruby
+class Bond < Instrument
+  def recorder_options
+    super.merge(async: false)
+  end
+end
+```
+
+`super` returns the parent's options, by default the hash it declared, which
+every subclass shares: build a new one, such as `super.merge(...)` or
+`[*super[:ignore], :coupon]`, rather than changing it in place. The result is
+applied as if it had been declared. The usual rules hold: `only:` takes
+precedence over `ignore:`, so adding to `ignore:` has no effect under a parent
+that declares `only:`, and an `ignore:` replaces `Recorder.config.ignore`, so a
+subclass adding one under a parent that declares none has to repeat the global
+list.
+
 ### Global configuration
 
 ```ruby
@@ -219,8 +246,10 @@ as `"#{model}Changeset"` — or point at another one with a
 
 The gem is under active maintenance and these defects are known:
 
-- A subclass does not inherit the options its parent passed to `recorder`. An
-  STI subclass that declares nothing records as if no options were given.
+- Revisions of an STI subclass are stored with the subclass name in
+  `item_type`, while `revisions` looks them up by the base class name, so
+  `revisions` returns nothing on a subclass instance. Query
+  `Recorder::Revision` by `item_id` and the subclass name instead.
 - `async: true` needs Sidekiq in the host app. Without it, saving a record
   raises `NameError: uninitialized constant Recorder::Sidekiq`.
 - `Recorder.enabled=` does not switch recording off. It writes to

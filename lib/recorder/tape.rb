@@ -37,7 +37,7 @@ module Recorder
     protected
 
     def recorder_options
-      item.respond_to?(:recorder_options) ? item.recorder_options : {}
+      item.respond_to?(:recorder_options, true) ? item.send(:recorder_options) : {}
     end
 
     def data_for(event, options)
