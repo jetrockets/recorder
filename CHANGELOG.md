@@ -41,6 +41,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   subclass's revisions change shape the way a declaring model's do above.
 - A `recorder_options` instance method defined as private is used. It used to
   be ignored, and the model recorded as if no options were given.
+- **Breaking.** Revisions of an STI subclass store the base class name in
+  `item_type`, the model's `polymorphic_name`, so `revisions` finds them. They
+  stored the subclass name, which no Active Record lookup through `item` or
+  `revisions` matches, so `revisions` on a subclass instance returned nothing.
+  Queries that filter `item_type` by a subclass name stop matching new rows;
+  filter by the base class, or by the snapshot's inheritance column. Existing
+  rows are not rewritten; the README has a snippet that does it.
 
 ## [1.4.0]
 
