@@ -72,8 +72,6 @@ Recorder supports the following options:
  * `ignore: [array]` - attributes that are ignored on logging. Replaces `Recorder.config.ignore` for this model rather than adding to it;
  * `only: [array]` - only these attributes are logged, other attributes are ignored. `Recorder.config.ignore` does not apply, so a listed attribute is logged even if the global list ignores it. Takes precedence over `ignore:`;
  * `associations: {hash} (hash)` - allows to set what associations will be logged alongside with the model. For each association you can also set ignore and only options, which follow the same rules; an association given neither falls back to `Recorder.config.ignore`;
- * `async: bool` - a logging strategy (true - asynchronous, false - synchronous).
- * `delay: duration` - how long after the save an asynchronous revision is written. Defaults to two seconds.
  * `changes: Proc | Symbol` - extra entries to merge into a revision's `changes`. A Proc
    is evaluated on the record, a Symbol names a method on it; both receive the event
    (`:create`, `:update` or `:destroy`) and return a hash of `name => [old, new]`, or
@@ -118,7 +116,7 @@ not reloaded. A subclass that needs different options defines
 ```ruby
 class Bond < Instrument
   def recorder_options
-    super.merge(async: false)
+    super.merge(ignore: [*super[:ignore], :coupon])
   end
 end
 ```
@@ -137,13 +135,10 @@ list.
 ```ruby
 Recorder.config do |config|
   config.ignore = %i[created_at updated_at]
-  config.async = false
-  config.sidekiq_options = {queue: 'recorder', retry: 10, backtrace: true}
 end
 ```
 
-`ignore` defaults to `[]`, `async` to `false`, and `sidekiq_options` to the hash
-shown above.
+`ignore` defaults to `[]`.
 
 `ignore` applies only to models, and associations, that declare neither `only:`
 nor `ignore:`. A model that declares either uses its own list alone, so to keep
@@ -156,9 +151,12 @@ recorder ignore: [*Recorder.config.ignore, :internal_id]
 This reads the global list when the model loads, so configure `Recorder` in an
 initializer.
 
-There are two strategies for logging: synchronous and asynchronous. When the synchronous strategy is used, a revision record is saved immediately after a model is saved, and the async strategy moves creating of revision records to [Sidekiq](https://github.com/sidekiq/sidekiq). Under the async
-strategy the revision is enqueued to `Recorder::Sidekiq::RevisionsWorker` two
-seconds out; the worker is loaded by the railtie when `Sidekiq` is defined.
+### When a revision is written
+
+A revision is written from the model's `after_create`, `after_update` and
+`after_destroy` callbacks, in the same database transaction as the save. The
+record and its revision commit together, and a save that rolls back leaves no
+revision behind.
 
 ### Recording the current user
 
@@ -278,8 +276,6 @@ as `"#{model}Changeset"` — or point at another one with a
 
 The gem is under active maintenance and these defects are known:
 
-- `async: true` needs Sidekiq in the host app. Without it, saving a record
-  raises `NameError: uninitialized constant Recorder::Sidekiq`.
 - `Recorder.enabled=` does not switch recording off. It writes to
   `Recorder.config`, which nothing on the recording path reads — the gates are in
   `Recorder.store`, which `Recorder::Manager` drives.
