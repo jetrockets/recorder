@@ -14,12 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Every call used to register the create, update and destroy callbacks anew, so
   a model that declared it twice wrote two identical revisions per event. A
   subclass that needs different options defines a `recorder_options` instance
-  method instead.
-- **Breaking.** The options passed to `recorder` are stored frozen, since
-  subclasses share them. A `recorder_options` override that changes `super` in
-  place, such as `super[:ignore] << :x` or `super.merge!(...)`, now raises
-  `FrozenError` when the record is saved, not when the class loads. Build a new
-  hash instead: `super.merge(...)`, `[*super[:ignore], :x]`.
+  method instead. A declaration that runs twice on one class, such as one in a
+  `to_prepare` block on a class that is not reloaded, raises too; it used to
+  add another revision per event on every run.
 
 ### Fixed
 
@@ -39,8 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   A `recorder_options` instance method on the model still takes precedence, and
   replaces the declared options rather than merging with them.
-- A subclass, STI included, records under the options its parent passed to
-  `recorder`. It used to record as if no options were given.
+- **Breaking.** A subclass, STI included, records under the options its parent
+  passed to `recorder`. It used to record as if no options were given, so a
+  subclass's revisions change shape the way a declaring model's do above.
+- A `recorder_options` instance method defined as private is used. It used to
+  be ignored, and the model recorded as if no options were given.
 
 ## [1.4.0]
 

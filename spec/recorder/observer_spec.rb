@@ -40,6 +40,16 @@ RSpec.describe Recorder::Observer do
       end
     end
 
+    it 'does not count a call that raised' do
+      model = securities_model('Retried')
+
+      aggregate_failures do
+        expect { model.recorder changes: 42 }.to raise_error(ArgumentError, /`changes:`/)
+        expect { model.recorder ignore: %i[identifier] }.not_to raise_error
+        expect { model.create!(name: 'Facebook', identifier: 'FB') }.to change(Recorder::Revision, :count).by(1)
+      end
+    end
+
     it 'leaves the parent alone when a subclass declares it first' do
       parent = securities_model('Unrecorded')
       child = stub_const('RecordedChild', Class.new(parent) { recorder only: %i[name] })
@@ -62,12 +72,34 @@ RSpec.describe Recorder::Observer do
       end
     end
 
-    it 'is frozen all the way down, since subclasses share it' do
+    it 'reaches a subclass that included Observer before its parent did' do
+      parent = stub_const('LateIncluder', Class.new(ApplicationRecord) { self.table_name = 'securities' })
+      child = stub_const('EarlyIncluder', Class.new(parent) { include Recorder::Observer })
+      parent.include(described_class)
+      parent.recorder ignore: %i[identifier updated_at]
+
+      record = child.create!(name: 'Facebook', identifier: 'FB')
+
+      snapshots = Recorder::Revision.where(item_id: record.id).map { |revision| revision.data['attributes'] }
       aggregate_failures do
-        expect(Instrument.recorder_options).to be_frozen
-        expect(Instrument.recorder_options[:ignore]).to be_frozen
-        expect(Instrument.recorder_options[:associations][:guard][:only]).to be_frozen
+        expect(snapshots.size).to eq(1)
+        expect(snapshots.first.keys).not_to include('identifier', 'updated_at')
       end
+    end
+
+    it 'can be overridden on the class, building on super' do
+      model = securities_model('ClassOverride')
+      model.class_eval do
+        recorder ignore: %i[identifier]
+
+        def self.recorder_options
+          super.merge(ignore: %i[identifier updated_at])
+        end
+      end
+      record = model.create!(name: 'Facebook', identifier: 'FB')
+
+      snapshot = Recorder::Revision.where(item_id: record.id).last.data['attributes']
+      expect(snapshot.keys).not_to include('identifier', 'updated_at')
     end
 
     it 'keeps options declared with indifferent access' do
@@ -78,30 +110,9 @@ RSpec.describe Recorder::Observer do
       snapshot = Recorder::Revision.where(item_id: record.id).last.data['attributes']
       expect(snapshot.keys).not_to include('identifier', 'updated_at')
     end
-
-    it 'leaves the values passed to .recorder unfrozen' do
-      ignore = %i[identifier]
-      securities_model('SharedIgnore') { recorder ignore: ignore }
-
-      expect(ignore).not_to be_frozen
-    end
-
-    it 'cannot be assigned from outside the class' do
-      expect { Instrument.recorder_options = {} }.to raise_error(NoMethodError)
-    end
   end
 
   describe '#recorder_options' do
-    it 'raises on save when an override changes its parent’s options in place' do
-      subclass = stub_const('Strip', Class.new(Instrument) do
-        def recorder_options
-          super.tap { |options| options[:ignore] << :settle_days }
-        end
-      end)
-
-      expect { subclass.create!(name: 'Treasury', identifier: 'UST') }.to raise_error(FrozenError)
-    end
-
     it 'lets a subclass build its own options on its parent’s' do
       subclass = stub_const('Bill', Class.new(Instrument) do
         def recorder_options
