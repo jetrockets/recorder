@@ -78,6 +78,14 @@ RSpec.describe Instrument do
 
       expect(last_revision(named).data['changes']).to eq('name' => %w[Facebook Meta])
     end
+
+    it 'records a listed attribute the global ignore list leaves out' do
+      Recorder.config.ignore = %i[name]
+
+      named.update!(name: 'Meta')
+
+      expect(last_revision(named).data['changes']).to eq('name' => %w[Facebook Meta])
+    end
   end
 
   describe 'changes:' do

@@ -69,9 +69,9 @@ end
 
 Recorder supports the following options:
 
- * `ignore: [array]` - attributes that are ignored on logging;
- * `only: [array]` - only these attributes are logged, other attributes are ingored;
- * `associations: {hash} (hash)` - allows to set what associations will be logged alongside with the model. For each association you can also set ignore and only options;
+ * `ignore: [array]` - attributes that are ignored on logging. Replaces `Recorder.config.ignore` for this model rather than adding to it;
+ * `only: [array]` - only these attributes are logged, other attributes are ignored. `Recorder.config.ignore` does not apply, so a listed attribute is logged even if the global list ignores it. Takes precedence over `ignore:`;
+ * `associations: {hash} (hash)` - allows to set what associations will be logged alongside with the model. For each association you can also set ignore and only options, which follow the same rules; an association given neither falls back to `Recorder.config.ignore`;
  * `async: bool` - a logging strategy (true - asynchronous, false - synchronous).
  * `delay: duration` - how long after the save an asynchronous revision is written. Defaults to two seconds.
  * `changes: Proc | Symbol` - extra entries to merge into a revision's `changes`. A Proc
@@ -144,6 +144,17 @@ end
 
 `ignore` defaults to `[]`, `async` to `false`, and `sidekiq_options` to the hash
 shown above.
+
+`ignore` applies only to models, and associations, that declare neither `only:`
+nor `ignore:`. A model that declares either uses its own list alone, so to keep
+the global list and add to it, repeat it:
+
+```ruby
+recorder ignore: [*Recorder.config.ignore, :internal_id]
+```
+
+This reads the global list when the model loads, so configure `Recorder` in an
+initializer.
 
 There are two strategies for logging: synchronous and asynchronous. When the synchronous strategy is used, a revision record is saved immediately after a model is saved, and the async strategy moves creating of revision records to [Sidekiq](https://github.com/sidekiq/sidekiq). Under the async
 strategy the revision is enqueued to `Recorder::Sidekiq::RevisionsWorker` two
