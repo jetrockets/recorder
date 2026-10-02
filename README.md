@@ -183,6 +183,10 @@ changes, set it yourself; it holds for the rest of the request or thread:
 Recorder.info = {action_date: Date.new(2020, 1, 1)}
 ```
 
+`created_at` is always when the revision was written. `Recorder.info` raises
+`ArgumentError` for it and for the other columns Recorder writes itself: `id`,
+`item_type`, `item_id`, `event` and `data`.
+
 ### Turning recording off
 
 `Recorder::Manager` suspends recording for the current request or thread:

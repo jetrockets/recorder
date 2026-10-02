@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   method instead. A declaration that runs twice on one class, such as one in a
   `to_prepare` block on a class that is not reloaded, raises too; it used to
   add another revision per event on every run.
+- **Breaking.** `Recorder.info` raises `ArgumentError` for the columns Recorder
+  writes itself: `created_at`, `id`, `item_type`, `item_id`, `event` and
+  `data`. A `created_at` set through it used to overwrite every following
+  revision's, so `created_at` was not reliably when the revision was written;
+  to date revisions otherwise, set `action_date`. The other keys were silently
+  overwritten by the revision's own values.
 
 ### Fixed
 
