@@ -12,6 +12,10 @@ require 'recorder/rails/controller_concern'
 require 'recorder/rails/railtie' if defined? ::Rails::Railtie
 
 module Recorder
+  # Columns Recorder writes itself, which `Recorder.info` cannot set.
+  RESERVED_INFO_KEYS = %w[id item_type item_id event data created_at].freeze
+  private_constant :RESERVED_INFO_KEYS
+
   class << self
     # Switches Recorder on or off.
     # @api public
@@ -27,8 +31,16 @@ module Recorder
     end
 
     # Sets Recorder information from the controller.
+    # @raise [ArgumentError] if the hash sets a column Recorder writes itself
     # @api public
     def info=(hash)
+      reserved = hash.keys.map(&:to_s) & RESERVED_INFO_KEYS
+
+      if reserved.any?
+        raise ArgumentError, "Recorder.info cannot set columns Recorder writes itself: #{reserved.join(", ")}. " \
+                             'To date a revision, set action_date.'
+      end
+
       store.params.merge!(hash)
     end
 

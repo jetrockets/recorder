@@ -17,11 +17,12 @@ module Recorder
 
       private
 
+      # A revision is dated by the request that made the change, or else today
+      # in the application's time zone.
       def params_for(params)
-        Recorder.store.params.merge({
-          action_date: Date.today,
-          **params
-        })
+        Recorder.store.params.merge(params).tap do |merged|
+          merged[:action_date] ||= Date.current
+        end
       end
 
       def async?(options)

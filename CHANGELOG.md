@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   method instead. A declaration that runs twice on one class, such as one in a
   `to_prepare` block on a class that is not reloaded, raises too; it used to
   add another revision per event on every run.
+- **Breaking.** `Recorder.info` raises `ArgumentError` for the columns Recorder
+  writes itself: `created_at`, `id`, `item_type`, `item_id`, `event` and
+  `data`. A `created_at` set through it used to overwrite every following
+  revision's, so `created_at` was not reliably when the revision was written;
+  to date revisions otherwise, set `action_date`. The other keys were silently
+  overwritten by the revision's own values.
 
 ### Fixed
 
@@ -51,6 +57,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Queries that filter `item_type` by a subclass name stop matching new rows;
   filter by the base class, or by the snapshot's inheritance column. Existing
   rows are not rewritten; the README has a snippet that does it.
+- An `action_date` set through `Recorder.info` is recorded. Every revision used
+  to be dated with the server's `Date.today` instead, so a revision could not
+  be backdated.
+- **Breaking.** `action_date` is today in the application's time zone,
+  `Date.current`, whether the controller concern sets it or nothing does. It
+  was the server's date, so an app whose `config.time_zone` differs from the
+  server's records a different date for changes made near midnight. Existing
+  rows keep the server's date, so a trail that spans the upgrade holds both.
+- `Revision.ordered_by_created_at` orders revisions with the same `created_at`
+  by `id`, newest first. They used to come back in whatever order the database
+  returned them, so the latest of two revisions written in the same instant
+  was not reliably `first`.
 
 ## [1.4.0]
 
