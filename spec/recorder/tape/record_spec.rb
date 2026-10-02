@@ -3,6 +3,37 @@
 require 'rails_helper'
 
 RSpec.describe Recorder::Tape::Record do
+  describe 'the action date' do
+    include ActiveSupport::Testing::TimeHelpers
+
+    def recorded_action_date
+      Security.create!(name: 'Facebook', identifier: 'FB')
+      Recorder::Revision.last.action_date
+    end
+
+    it 'is the date the request supplied' do
+      Recorder.info = {action_date: Date.new(2020, 1, 1)}
+
+      expect(recorded_action_date).to eq(Date.new(2020, 1, 1))
+    end
+
+    # At 10:00 UTC only UTC+14 has reached the next day, so the application's
+    # date differs from the server's wherever the suite runs.
+    it "defaults to today in the application's time zone" do
+      Time.use_zone('Pacific/Kiritimati') do
+        travel_to(Time.utc(2026, 10, 2, 10)) do
+          expect(recorded_action_date).to eq(Date.new(2026, 10, 3))
+        end
+      end
+    end
+
+    it 'defaults to today when the request supplied nil' do
+      Recorder.info = {action_date: nil}
+
+      expect(recorded_action_date).to eq(Date.current)
+    end
+  end
+
   # What matters for the supported range is the payload: Sidekiq 7 raises on job
   # arguments that are not JSON native, and a Rails 7.1+ app is running Sidekiq 7
   # or 8. `spec/support/sidekiq_stand_in.rb` loads the worker class so the double
@@ -100,8 +131,14 @@ RSpec.describe Recorder::Tape::Record do
 
       aggregate_failures do
         expect(action_date).to be_a(String)
-        expect(Date.parse(action_date)).to eq(Date.today)
+        expect(Date.parse(action_date)).to eq(Date.current)
       end
+    end
+
+    it 'passes the action date the request supplied' do
+      Recorder.info = {action_date: Date.new(2020, 1, 1)}
+
+      expect(Date.parse(record_and_capture.last['action_date'])).to eq(Date.new(2020, 1, 1))
     end
 
     it 'passes only JSON-native arguments' do

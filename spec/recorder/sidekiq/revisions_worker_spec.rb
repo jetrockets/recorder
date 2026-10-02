@@ -38,7 +38,7 @@ RSpec.describe Recorder::Sidekiq::RevisionsWorker do
   end
 
   it 'stores action_date as a date' do
-    expect(perform_enqueued_job.action_date).to eq(Date.today)
+    expect(perform_enqueued_job.action_date).to eq(Date.current)
   end
 
   it 'stores meta as the synchronous path stores it' do

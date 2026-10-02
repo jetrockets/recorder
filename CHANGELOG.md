@@ -51,6 +51,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Queries that filter `item_type` by a subclass name stop matching new rows;
   filter by the base class, or by the snapshot's inheritance column. Existing
   rows are not rewritten; the README has a snippet that does it.
+- An `action_date` set through `Recorder.info` is recorded. Every revision used
+  to be dated with the server's `Date.today` instead, so a revision could not
+  be backdated.
+- **Breaking.** `action_date` is today in the application's time zone,
+  `Date.current`, whether the controller concern sets it or nothing does. It
+  was the server's date, so an app whose `config.time_zone` differs from the
+  server's records a different date for changes made near midnight. Existing
+  rows keep the server's date, so a trail that spans the upgrade holds both.
 
 ## [1.4.0]
 
