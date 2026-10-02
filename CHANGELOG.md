@@ -59,6 +59,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   was the server's date, so an app whose `config.time_zone` differs from the
   server's records a different date for changes made near midnight. Existing
   rows keep the server's date, so a trail that spans the upgrade holds both.
+- `Revision.ordered_by_created_at` orders revisions with the same `created_at`
+  by `id`, newest first. They used to come back in whatever order the database
+  returned them, so the latest of two revisions written in the same instant
+  was not reliably `first`.
 
 ## [1.4.0]
 

@@ -26,7 +26,9 @@ module Recorder
     validates :action_date, presence: true
     validates :data, presence: true
 
-    scope :ordered_by_created_at, -> { order(created_at: :desc) }
+    # Newest first. Revisions written in the same instant fall back to the
+    # order they were inserted in.
+    scope :ordered_by_created_at, -> { order(created_at: :desc, id: :desc) }
 
     # def item
     #   return @item if defined?(@item)
