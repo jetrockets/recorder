@@ -53,23 +53,35 @@ module Recorder
       @item_changeset ||= changeset_class(item).new(item, data['changes'])
     end
 
-    # Get names of item associations that has been changed
+    # Get names of item associations that carry changes
     # @return [Array]
     def changed_associations
-      data['associations'].try(:keys) || []
+      return [] unless data['associations'].is_a?(Hash)
+
+      data['associations'].select { |_name, association| association_changes(association) }.keys
     end
 
     # Get changeset for an association
     # @param name [String] name of association to return changeset
-    # @return [Recorder::Changeset]
+    # @return [Recorder::Changeset, nil] nil when the revision holds no changes for it
     def association_changeset(name)
-      association = item.send(name)
-      # association = association.source if association.decorated?
+      return nil if item.nil?
 
-      changeset_class(association).new(association, data['associations'].fetch(name.to_s).try(:fetch, 'changes'))
+      changes = association_changes(data['associations'].try(:[], name.to_s))
+      return nil if changes.nil?
+
+      association = item.send(name)
+      return nil if association.nil?
+
+      changeset_class(association).new(association, changes)
     end
 
     protected
+
+    # @api private
+    def association_changes(association)
+      association['changes'].presence if association.is_a?(Hash)
+    end
 
     # Returns changeset class for passed object.
     # Changeset class name can be overriden with `#recorder_changeset_class` method.

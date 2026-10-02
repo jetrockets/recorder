@@ -51,6 +51,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Queries that filter `item_type` by a subclass name stop matching new rows;
   filter by the base class, or by the snapshot's inheritance column. Existing
   rows are not rewritten; the README has a snippet that does it.
+- **Breaking.** A revision records each association named in `associations:`
+  as an `attributes` snapshot, on `create` and `destroy` only. It used to add
+  the associated record's `saved_changes`, which describe that in-memory
+  record's last save rather than the one being recorded. So a revision could
+  claim an association changed when it had not, and an update touching only
+  excluded attributes still wrote a revision whenever the associated record had
+  been saved earlier in the process. An associated record's changes belong to
+  its own revisions; replacing a `belongs_to` target shows up as the foreign
+  key in the item's `changes`. `update` revisions no longer carry
+  `associations`.
+- `Revision#association_changeset` returns `nil` when the revision holds no
+  changes for that association, or the item or the associated record no longer
+  exists. It used to raise `KeyError` or `NoMethodError`. `changed_associations`
+  lists only the associations that hold changes, where it listed every recorded
+  one.
 
 ## [1.4.0]
 

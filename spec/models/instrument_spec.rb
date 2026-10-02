@@ -94,11 +94,33 @@ RSpec.describe Instrument do
     end
   end
 
+  # `instrument` was created in this example and is still in memory, so its
+  # `saved_changes` hold that create.
   describe 'associations:' do
-    it 'records the association alongside the item' do
-      owned = described_class.create!(name: 'Instagram', identifier: 'IG', guard: instrument)
+    let(:owned) { described_class.create!(name: 'Instagram', identifier: 'IG', guard: instrument) }
 
-      expect(last_revision(owned).data['associations']['guard']['attributes']).to eq('name' => 'Facebook')
+    it 'records the snapshot of the association alongside the item' do
+      expect(last_revision(owned).data['associations']).to eq('guard' => {'attributes' => {'name' => 'Facebook'}})
+    end
+
+    it 'records nothing when only ignored attributes changed' do
+      owned
+
+      expect { owned.update!(identifier: 'IGX') }
+        .not_to change(Recorder::Revision, :count)
+    end
+
+    it 'records no associations on update' do
+      owned.update!(name: 'Threads')
+
+      expect(last_revision(owned).data).not_to have_key('associations')
+    end
+
+    it 'records the snapshot of the association on destroy' do
+      owned.destroy!
+
+      expect(Recorder::Revision.where(item_id: owned.id).order(:id).last.data['associations'])
+        .to eq('guard' => {'attributes' => {'name' => 'Facebook'}})
     end
   end
 end
