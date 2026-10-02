@@ -119,8 +119,7 @@ RSpec.describe Instrument do
     it 'records the snapshot of the association on destroy' do
       owned.destroy!
 
-      expect(Recorder::Revision.where(item_id: owned.id).order(:id).last.data['associations'])
-        .to eq('guard' => {'attributes' => {'name' => 'Facebook'}})
+      expect(last_revision(owned).data['associations']).to eq('guard' => {'attributes' => {'name' => 'Facebook'}})
     end
   end
 end

@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     same holds for `only:`: an attribute it lists is recorded even if the
     global list ignores it. To keep the global list, repeat it, as in
     `ignore: [*Recorder.config.ignore, :token]`.
-  - `associations:` adds an `associations` key.
+  - `associations:` adds an `associations` key to create and destroy revisions.
   - `async: true` moves the write to Sidekiq, and raises `NameError` on save in
     an app that does not have Sidekiq.
 
@@ -61,11 +61,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its own revisions; replacing a `belongs_to` target shows up as the foreign
   key in the item's `changes`. `update` revisions no longer carry
   `associations`.
-- `Revision#association_changeset` returns `nil` when the revision holds no
-  changes for that association, or the item or the associated record no longer
-  exists. It used to raise `KeyError` or `NoMethodError`. `changed_associations`
-  lists only the associations that hold changes, where it listed every recorded
-  one.
+- **Breaking.** `Revision#changed_associations` lists only the associations
+  that hold changes, where it listed every recorded one.
+  `Revision#association_changeset` returns `nil` when the revision holds no
+  changes for that association, or when the item is gone or no longer has that
+  association set. It used to raise `KeyError` or `NoMethodError`.
 
 ## [1.4.0]
 

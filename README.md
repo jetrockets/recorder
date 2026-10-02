@@ -224,9 +224,10 @@ changed:
   revisions, and replacing a `belongs_to` target shows up as the foreign key in
   `changes`, unless `only:` or `ignore:` leaves it out.
 
-The snapshot is the contract, not an accident of the implementation: a revision
-is self-contained, so reconstructing a record at a point in time does not mean
-replaying every prior diff. It is also what keeps a `destroy` revision useful,
+The snapshot is the contract, not an accident of the implementation: a
+revision's `attributes` are self-contained, so reconstructing a record at a
+point in time does not mean replaying every prior diff. Association snapshots
+exist only on `create` and `destroy` revisions. It is also what keeps a `destroy` revision useful,
 since the row it describes is gone.
 
 An `update` records a revision only when the record reports a change; `create`

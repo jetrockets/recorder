@@ -56,9 +56,7 @@ module Recorder
     # Get names of item associations that carry changes
     # @return [Array]
     def changed_associations
-      return [] unless data['associations'].is_a?(Hash)
-
-      data['associations'].select { |_name, association| association_changes(association) }.keys
+      recorded_associations.select { |_name, entry| association_changes(entry) }.keys
     end
 
     # Get changeset for an association
@@ -67,7 +65,7 @@ module Recorder
     def association_changeset(name)
       return nil if item.nil?
 
-      changes = association_changes(data['associations'].try(:[], name.to_s))
+      changes = association_changes(recorded_associations[name.to_s])
       return nil if changes.nil?
 
       association = item.send(name)
@@ -79,8 +77,13 @@ module Recorder
     protected
 
     # @api private
-    def association_changes(association)
-      association['changes'].presence if association.is_a?(Hash)
+    def recorded_associations
+      data['associations'].is_a?(Hash) ? data['associations'] : {}
+    end
+
+    # @api private
+    def association_changes(entry)
+      entry['changes'].presence if entry.is_a?(Hash)
     end
 
     # Returns changeset class for passed object.

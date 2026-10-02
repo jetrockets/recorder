@@ -176,6 +176,19 @@ module Recorder
         end
       end
 
+      context 'when the associated record is no longer set' do
+        let(:associations) { {guard: {attributes: {name: 'Meta'}, changes: {name: %w[Facebook Meta]}}} }
+
+        before do
+          revision
+          instrument.update!(guard: nil)
+        end
+
+        it 'returns no changeset' do
+          expect(described_class.find(revision.id).association_changeset('guard')).to be_nil
+        end
+      end
+
       context 'when the item no longer exists' do
         let(:associations) { {guard: {attributes: {name: 'Meta'}, changes: {name: %w[Facebook Meta]}}} }
 
