@@ -42,6 +42,28 @@ RSpec.describe Recorder::Tape::Record do
     end
   end
 
+  describe 'the recording check' do
+    def record
+      Recorder::Tape.record(item_type: 'Security', item_id: 1, event: 'create', data: {attributes: {name: 'Facebook'}})
+    end
+
+    it 'writes the revision while recording is on' do
+      expect { record }.to change(Recorder::Revision, :count).by(1)
+    end
+
+    it 'writes nothing while the process has recording off' do
+      Recorder.enabled = false
+
+      expect { record }.not_to change(Recorder::Revision, :count)
+    end
+
+    it 'writes nothing while the request has recording off' do
+      Recorder.store.recorder_disabled!
+
+      expect { record }.not_to change(Recorder::Revision, :count)
+    end
+  end
+
   # Examples already run inside a transaction, so a rollback needs a savepoint
   # of its own.
   def roll_back

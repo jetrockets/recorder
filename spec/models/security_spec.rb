@@ -63,11 +63,25 @@ RSpec.describe Security do
       expect { create_security }.not_to change(Recorder::Revision, :count)
     end
 
-    it 'records nothing while the process has it off, even if the request has it on' do
-      Recorder.enabled = false
-      Recorder.store.recorder_enabled!
+    context 'while the process has it off, even if the request has it on' do
+      let!(:security) { described_class.create!(name: 'Twitter', identifier: 'TW') }
 
-      expect { create_security }.not_to change(Recorder::Revision, :count)
+      before do
+        Recorder.enabled = false
+        Recorder.store.recorder_enabled!
+      end
+
+      it 'records no create' do
+        expect { create_security }.not_to change(Recorder::Revision, :count)
+      end
+
+      it 'records no update' do
+        expect { security.update!(name: 'X') }.not_to change(Recorder::Revision, :count)
+      end
+
+      it 'records no destroy' do
+        expect { security.destroy! }.not_to change(Recorder::Revision, :count)
+      end
     end
 
     it 'records again once the process has it back on' do
