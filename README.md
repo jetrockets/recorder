@@ -203,7 +203,9 @@ end
 
 The block form re-enables recording on the way out, including when the block
 raises. Called without a block, `recorder_disabled!` stays in effect until
-`recorder_enabled!`.
+`recorder_enabled!`. That state is cleared when a web request ends, but not
+reliably between background jobs, where it would carry over to later jobs on the
+same thread; use the block form there.
 
 `Recorder.enabled = false` switches recording off for the whole process, every
 thread included, until `Recorder.enabled = true`. It suits a one-off script,

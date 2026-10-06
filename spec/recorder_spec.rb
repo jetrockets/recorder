@@ -29,6 +29,18 @@ RSpec.describe Recorder do
 
       expect(described_class.recording?).to be(false)
     end
+
+    it 'is false in another thread while the process has recording off' do
+      described_class.enabled = false
+
+      expect(Thread.new { described_class.recording? }.value).to be(false)
+    end
+
+    it 'stays true in another thread while one request has recording off' do
+      described_class.store.recorder_disabled!
+
+      expect(Thread.new { described_class.recording? }.value).to be(true)
+    end
   end
 
   describe '.info=' do

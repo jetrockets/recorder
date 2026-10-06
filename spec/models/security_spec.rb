@@ -63,12 +63,6 @@ RSpec.describe Security do
       expect { create_security }.not_to change(Recorder::Revision, :count)
     end
 
-    it 'records nothing while the process has it off' do
-      Recorder.enabled = false
-
-      expect { create_security }.not_to change(Recorder::Revision, :count)
-    end
-
     it 'records nothing while the process has it off, even if the request has it on' do
       Recorder.enabled = false
       Recorder.store.recorder_enabled!
