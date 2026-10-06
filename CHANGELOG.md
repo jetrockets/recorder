@@ -73,9 +73,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   claim an association changed when it had not, and an update touching only
   excluded attributes still wrote a revision whenever the associated record had
   been saved earlier in the process. An associated record's changes belong to
-  its own revisions; replacing a `belongs_to` target shows up as the foreign
-  key in the item's `changes`. `update` revisions no longer carry
-  `associations`.
+  its own revisions, so an edit saved through the item, with `autosave:` or
+  nested attributes, is recorded only when the associated model records itself
+  too. Replacing a `belongs_to` target shows up as the foreign key in the item's
+  `changes`; replacing a `has_one` target shows up only in the associated
+  records' own revisions. `update` revisions no longer carry `associations`.
 - **Breaking.** `Revision#changed_associations` lists only the associations
   that hold changes, where it listed every recorded one.
   `Revision#association_changeset` returns `nil` when the revision holds no

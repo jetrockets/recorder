@@ -116,8 +116,7 @@ module Recorder
       end
     end
 
-    # Revisions written before 2.0.0 can carry an association's `changes`;
-    # later ones carry only its snapshot.
+    # An association entry may or may not hold `changes`.
     describe 'association readers' do
       let(:guard) { Instrument.create!(name: 'Meta', identifier: 'META') }
       let(:instrument) { Instrument.create!(name: 'Instagram', identifier: 'IG', guard: guard) }
