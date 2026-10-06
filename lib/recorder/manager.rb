@@ -12,7 +12,11 @@ module Recorder
       begin
         yield
       ensure
-        Recorder.store.recorder_enabled! if was_enabled
+        if was_enabled
+          Recorder.store.recorder_enabled!
+        else
+          Recorder.store.recorder_disabled!
+        end
       end
     end
 

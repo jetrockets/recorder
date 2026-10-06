@@ -47,6 +47,13 @@ RSpec.describe Recorder::Manager do
         expect(Recorder.store.recorder_enabled?).to be(false)
       end
 
+      it 'leaves recording disabled when it was disabled before a block that enables it' do
+        manager.recorder_disabled!
+        manager.recorder_disabled! { manager.recorder_enabled! }
+
+        expect(Recorder.store.recorder_enabled?).to be(false)
+      end
+
       it 'leaves recording disabled for the rest of an enclosing block' do
         observed = nil
 
