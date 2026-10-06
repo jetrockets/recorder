@@ -158,6 +158,14 @@ A revision is written from the model's `after_create`, `after_update` and
 record and its revision commit together, and a save that rolls back leaves no
 revision behind.
 
+A revision that cannot be written fails the save: it raises, and the save rolls
+back, along with any transaction around it that does not rescue the error. This
+holds for `save` and `update` as much as for `save!`, and for `destroy`. A
+revision that fails validation, or that a callback on `Recorder::Revision`
+halts, raises `Recorder::RevisionNotSaved`, a subclass of
+`ActiveRecord::RecordNotSaved` whose `record` is the revision. A database error
+raises as it would from any other write.
+
 ### Recording the current user
 
 To enable storing of such data as user_id and ip, you need to include `Recorder::Rails::ControllerConcern` to `ApplicationController`. Recorder uses [request_store](https://github.com/steveklabnik/request_store) to safely store these data on a thread level.

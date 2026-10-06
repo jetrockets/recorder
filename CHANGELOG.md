@@ -112,6 +112,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Revision#association_changeset` returns `nil` when the revision holds no
   changes for that association, or when the item is gone or no longer has that
   association set. It used to raise `KeyError` or `NoMethodError`.
+- **Breaking.** A revision that fails validation, or that a callback on
+  `Recorder::Revision` halts, raises `Recorder::RevisionNotSaved`, a new
+  subclass of `ActiveRecord::RecordNotSaved` whose `record` is the revision.
+  It raises from the save of the observed record, `save` and `update` included,
+  so the save rolls back, along with any transaction around it that does not
+  rescue the error. Such a revision used to be dropped and the save went
+  through without it. An app that adds validations or callbacks to
+  `Recorder::Revision` sees them fail the save.
 
 ## [1.4.0]
 
