@@ -10,7 +10,7 @@ This file provides guidance to coding agents when working with code in this repo
 
 Recorder is an audit trail. Host apps build compliance, support and debugging features on top of it and assume the history is complete and correct. Every change to the gem has to keep these guarantees:
 
-1. **No lost actions.** Every create, update and destroy of an observed record produces a revision. The only ways to skip one are the explicit opt-outs: the `only:` and `ignore:` options, `Recorder.config.ignore`, and `recorder_disabled!`. An update that touches nothing but ignored attributes is the one case that writes no revision.
+1. **No lost actions.** Every create, update and destroy of an observed record produces a revision. The only ways to skip one are the explicit opt-outs: the `only:` and `ignore:` options, `Recorder.config.ignore`, `recorder_disabled!` and `Recorder.enabled = false`. An update that touches nothing but ignored attributes is the one case that writes no revision.
 2. **History rebuilds the record.** Replaying a record's revisions yields its final state, ignored attributes aside. Each revision carries enough to stand on its own: a snapshot of the recorded attributes plus the changes that led to it.
 3. **No phantom actions.** A revision describes a change that was really persisted. A change that was rolled back leaves no revision behind.
 4. **Revisions are append-only.** The gem creates revisions and never updates or deletes them. Cleaning up history is the host app's decision.
@@ -62,7 +62,9 @@ The flow of one recorded change, in the order the code runs:
 There are two separate kinds of state:
 
 - `Recorder.config` is a process-wide singleton holding global settings.
-- `Recorder.store` wraps `RequestStore`, so it is per-request: the request params from step 1 and the flag `Recorder::Manager` toggles.
+- `Recorder.store` wraps `RequestStore`, so it is per-request: the request params from step 1 and the flag `Recorder::Manager` toggles. `RequestStore` keeps it in `Thread.current[]`, which is fiber-local, so a new fiber starts without it. `RequestStore`'s Rack middleware clears it after each request; outside a request, in a background job for instance, nothing reliably does, so it lasts as long as the thread.
+
+A change is recorded only while both the process-wide `Recorder.enabled?` and the per-request flag are on. Code that decides whether to record calls `Recorder.recording?`, never one of the flags alone.
 
 ## Specs
 

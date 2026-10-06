@@ -20,10 +20,6 @@ module Recorder
       store[:enabled]
     end
 
-    def recorder_disabled?
-      !store[:enabled]
-    end
-
     private
 
     def store

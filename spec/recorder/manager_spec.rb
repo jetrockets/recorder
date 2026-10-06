@@ -40,6 +40,39 @@ RSpec.describe Recorder::Manager do
         expect(Recorder.store.recorder_enabled?).to be(true)
       end
 
+      it 'leaves recording disabled when it was disabled before the block' do
+        manager.recorder_disabled!
+        manager.recorder_disabled! { nil }
+
+        expect(Recorder.store.recorder_enabled?).to be(false)
+      end
+
+      it 'leaves recording disabled when it was disabled before a block that enables it' do
+        manager.recorder_disabled!
+        manager.recorder_disabled! { manager.recorder_enabled! }
+
+        expect(Recorder.store.recorder_enabled?).to be(false)
+      end
+
+      it 'leaves recording disabled for the rest of an enclosing block' do
+        observed = nil
+
+        manager.recorder_disabled! do
+          manager.recorder_disabled! { nil }
+          observed = Recorder.store.recorder_enabled?
+        end
+
+        expect(observed).to be(false)
+      end
+
+      it 'leaves recording disabled when it was disabled before a block that raises' do
+        manager.recorder_disabled!
+
+        expect { manager.recorder_disabled! { raise 'boom' } }.to raise_error('boom')
+
+        expect(Recorder.store.recorder_enabled?).to be(false)
+      end
+
       it 'lets the exception propagate' do
         expect { manager.recorder_disabled! { raise ArgumentError } }.to raise_error(ArgumentError)
       end

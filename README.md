@@ -201,9 +201,18 @@ class Importer
 end
 ```
 
-The block form re-enables recording on the way out, including when the block
-raises. Called without a block, `recorder_disabled!` stays in effect until
-`recorder_enabled!`.
+The block form restores the state it found on the way out, including when the
+block raises, so a block nested in another leaves recording off. Called without
+a block, `recorder_disabled!` stays in effect until `recorder_enabled!`. That
+state is cleared when a web request ends, but not reliably between background
+jobs, where it would carry over to later jobs on the same thread; use the block
+form there.
+
+`Recorder.enabled = false` switches recording off for the whole process, every
+thread included, until `Recorder.enabled = true`. It suits a one-off script,
+such as a backfill or a data migration; inside a running app it would stop the
+trail for every request at once, so use `recorder_disabled!` there. A change is
+recorded only while both are on.
 
 ### Reading revisions
 
@@ -295,9 +304,10 @@ as `"#{model}Changeset"` — or point at another one with a
 
 The gem is under active maintenance and these defects are known:
 
-- `Recorder.enabled=` does not switch recording off. It writes to
-  `Recorder.config`, which nothing on the recording path reads — the gates are in
-  `Recorder.store`, which `Recorder::Manager` drives.
+- `recorder_disabled!` reaches only the current fiber, not the whole thread:
+  `RequestStore` keeps its state in fiber-local storage. Code that runs in
+  another fiber inside the block, such as an `Enumerator#next` body or a task
+  under a fiber scheduler, is recorded.
 - Collection associations are never recorded. `associations:` handles only
   singular associations; a `has_many` reflection is skipped without a warning.
 - A `destroy` revision carries a `changes` key describing the record's last
