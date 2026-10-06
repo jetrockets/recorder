@@ -201,8 +201,8 @@ class Importer
 end
 ```
 
-The block form re-enables recording on the way out, including when the block
-raises. Called without a block, `recorder_disabled!` stays in effect until
+The block form restores the state it found on the way out, including when the
+block raises, so a block nested in another leaves recording off. Called without a block, `recorder_disabled!` stays in effect until
 `recorder_enabled!`. That state is cleared when a web request ends, but not
 reliably between background jobs, where it would carry over to later jobs on the
 same thread; use the block form there.

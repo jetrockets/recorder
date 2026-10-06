@@ -47,6 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whole process. It used to report recording as off while every change was
   still recorded, so a script that set it, such as a backfill or a data
   migration, starts leaving no revisions behind.
+- `recorder_disabled!` with a block restores the state it found, so one nested
+  in another, or called while recording is already off, leaves it off. It used
+  to turn recording back on when its block ended, and what followed was recorded.
 - **Breaking.** The options passed to `recorder` — `ignore:`, `only:`,
   `associations:` and `changes:` — are applied again. Since 1.2.2 they were
   stored on the class while the recorder read them off the record, so every
