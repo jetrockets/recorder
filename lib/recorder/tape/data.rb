@@ -89,16 +89,34 @@ module Recorder
         end
       end
 
+      # Logs a warning for a collection, and for a name that no class in the
+      # item's hierarchy declares, and skips both.
       def parse_association(association, options)
         reflection = item.class.reflect_on_association(association)
 
-        if reflection.present?
-          if reflection.collection?
-
-          elsif (object = item.send(association))
-            [reflection.name, Recorder::Tape::Data.new(object).attributes_for(nil, options || {})]
+        if reflection.nil?
+          unless association_in_hierarchy?(association)
+            warn_unrecordable("names #{association.inspect}, which is not an association of #{item.class}")
           end
+        elsif reflection.collection?
+          warn_unrecordable("names the collection #{association.inspect} of #{item.class}; " \
+            'only singular associations are recorded')
+        elsif (object = item.send(association))
+          [reflection.name, Recorder::Tape::Data.new(object).attributes_for(nil, options || {})]
         end
+      end
+
+      # STI subclasses inherit `associations:`, so an entry can name an
+      # association that only a sibling declares.
+      def association_in_hierarchy?(association)
+        base_class = item.class.base_class
+
+        [base_class, *base_class.descendants].any? { |klass| klass.reflect_on_association(association) }
+      end
+
+      def warn_unrecordable(message)
+        item.class.logger&.warn("Recorder: `associations:` #{message}")
+        nil
       end
 
       def record_changed?(data, event)

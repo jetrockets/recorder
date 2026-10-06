@@ -124,6 +124,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   record saved earlier through the same instance repeated that save's diff, as
   if the deletion had changed those attributes. The `attributes` snapshot is
   unchanged. Existing destroy revisions keep the stale `changes`.
+- `associations:` logs a warning, through the model's logger, when it names a
+  collection (`has_many`, `has_and_belongs_to_many`) or a name that is not an
+  association of the model. Both are still left out of the revision, as before,
+  but used to be skipped without a word. A name that only an STI sibling
+  declares is skipped without a warning.
 
 ## [1.4.0]
 
