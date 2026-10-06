@@ -17,6 +17,12 @@ RSpec.describe Recorder::Tape::Record do
       expect(recorded_action_date).to eq(Date.new(2020, 1, 1))
     end
 
+    it 'is the date the request supplied under a string key' do
+      Recorder.info = {'action_date' => Date.new(2020, 1, 1)}
+
+      expect(recorded_action_date).to eq(Date.new(2020, 1, 1))
+    end
+
     # At 10:00 UTC only UTC+14 has reached the next day, so the application's
     # date differs from the server's wherever the suite runs.
     it "defaults to today in the application's time zone" do
@@ -27,10 +33,12 @@ RSpec.describe Recorder::Tape::Record do
       end
     end
 
-    it 'defaults to today when the request supplied nil' do
-      Recorder.info = {action_date: nil}
+    [nil, ''].each do |blank|
+      it "defaults to today when the request supplied #{blank.inspect}" do
+        Recorder.info = {action_date: blank}
 
-      expect(recorded_action_date).to eq(Date.current)
+        expect(recorded_action_date).to eq(Date.current)
+      end
     end
   end
 

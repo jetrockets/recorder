@@ -20,6 +20,13 @@ RSpec.describe Recorder do
       expect(described_class.store.params).to include(user_id: 1, ip: '127.0.0.1', action_date: Date.new(2020, 1, 1))
     end
 
+    it 'stores a string key as the symbol it replaces' do
+      described_class.info = {user_id: 1}
+      described_class.info = {'user_id' => 2}
+
+      expect(described_class.store.params).to eq(user_id: 2)
+    end
+
     %i[id item_type item_id event data created_at].each do |column|
       it "refuses #{column}, which Recorder writes itself" do
         expect { described_class.info = {column => 'anything'} }

@@ -15,7 +15,7 @@ module Recorder
       # in the application's time zone.
       def params_for(params)
         Recorder.store.params.merge(params).tap do |merged|
-          merged[:action_date] ||= Date.current
+          merged[:action_date] = merged[:action_date].presence || Date.current
         end
       end
     end
