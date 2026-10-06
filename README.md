@@ -173,6 +173,17 @@ The concern reads `current_user`; override `recorder_user_id` to name a differen
 method. Override `recorder_meta` to store a hash alongside every revision. A
 revision without a user is valid — `user_id` stays `nil`.
 
+`revision.user` loads a `User` model. If your user model has another name,
+declare the association again in an initializer:
+
+```ruby
+# config/initializers/recorder.rb
+Recorder::Revision.belongs_to :user, class_name: 'Account', optional: true
+```
+
+Keep `optional: true`. Without it, `belongs_to_required_by_default` makes the
+user required, and a change made with no user fails to record.
+
 A revision's `action_date` is today in the application's time zone,
 `Date.current`. To date revisions otherwise, such as an import replaying past
 changes, set it yourself; it holds for the rest of the request or thread:
