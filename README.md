@@ -205,6 +205,12 @@ The block form re-enables recording on the way out, including when the block
 raises. Called without a block, `recorder_disabled!` stays in effect until
 `recorder_enabled!`.
 
+`Recorder.enabled = false` switches recording off for the whole process, every
+thread included, until `Recorder.enabled = true`. It suits a one-off script,
+such as a backfill or a data migration; inside a running app it would stop the
+trail for every request at once, so use `recorder_disabled!` there. A change is
+recorded only while both are on.
+
 ### Reading revisions
 
 Observed models get a `revisions` association:
@@ -295,9 +301,6 @@ as `"#{model}Changeset"` — or point at another one with a
 
 The gem is under active maintenance and these defects are known:
 
-- `Recorder.enabled=` does not switch recording off. It writes to
-  `Recorder.config`, which nothing on the recording path reads — the gates are in
-  `Recorder.store`, which `Recorder::Manager` drives.
 - Collection associations are never recorded. `associations:` handles only
   singular associations; a `has_many` reflection is skipped without a warning.
 - A `destroy` revision carries a `changes` key describing the record's last

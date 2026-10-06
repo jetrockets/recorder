@@ -13,6 +13,24 @@ RSpec.describe Recorder do
     end
   end
 
+  describe '.recording?' do
+    it 'is true by default' do
+      expect(described_class.recording?).to be(true)
+    end
+
+    it 'is false while the process has recording off' do
+      described_class.enabled = false
+
+      expect(described_class.recording?).to be(false)
+    end
+
+    it 'is false while the request has recording off' do
+      described_class.store.recorder_disabled!
+
+      expect(described_class.recording?).to be(false)
+    end
+  end
+
   describe '.info=' do
     it 'keeps the request context for the revisions that follow' do
       described_class.info = {user_id: 1, ip: '127.0.0.1', action_date: Date.new(2020, 1, 1)}

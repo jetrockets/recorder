@@ -16,7 +16,9 @@ module Recorder
   private_constant :RESERVED_INFO_KEYS
 
   class << self
-    # Switches Recorder on or off.
+    # Switches Recorder on or off for the whole process, every thread
+    # included. To switch it off for one request or job, use
+    # `Recorder::Manager#recorder_disabled!`.
     # @api public
     def enabled=(value)
       Recorder.config.enabled = value
@@ -27,6 +29,13 @@ module Recorder
     # @api public
     def enabled?
       !!Recorder.config.enabled
+    end
+
+    # Returns `true` if a change is recorded now: Recorder is on for the
+    # process and not switched off for the current request or thread.
+    # @api private
+    def recording?
+      enabled? && store.recorder_enabled?
     end
 
     # Sets Recorder information from the controller. Keys are stored as

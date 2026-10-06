@@ -18,7 +18,7 @@ module Recorder
     end
 
     def recorder_record?
-      recorder_dirty? && Recorder.store.recorder_enabled?
+      recorder_dirty? && Recorder.recording?
     end
 
     # Options passed to `.recorder`. A model may define this itself to decide

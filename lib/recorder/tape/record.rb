@@ -4,7 +4,7 @@ module Recorder
   class Tape
     module Record
       def record(params)
-        return if Recorder.store.recorder_disabled?
+        return unless Recorder.recording?
 
         Recorder::Revision.create(params_for(params))
       end

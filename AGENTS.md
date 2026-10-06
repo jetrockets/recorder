@@ -10,7 +10,7 @@ This file provides guidance to coding agents when working with code in this repo
 
 Recorder is an audit trail. Host apps build compliance, support and debugging features on top of it and assume the history is complete and correct. Every change to the gem has to keep these guarantees:
 
-1. **No lost actions.** Every create, update and destroy of an observed record produces a revision. The only ways to skip one are the explicit opt-outs: the `only:` and `ignore:` options, `Recorder.config.ignore`, and `recorder_disabled!`. An update that touches nothing but ignored attributes is the one case that writes no revision.
+1. **No lost actions.** Every create, update and destroy of an observed record produces a revision. The only ways to skip one are the explicit opt-outs: the `only:` and `ignore:` options, `Recorder.config.ignore`, `recorder_disabled!` and `Recorder.enabled = false`. An update that touches nothing but ignored attributes is the one case that writes no revision.
 2. **History rebuilds the record.** Replaying a record's revisions yields its final state, ignored attributes aside. Each revision carries enough to stand on its own: a snapshot of the recorded attributes plus the changes that led to it.
 3. **No phantom actions.** A revision describes a change that was really persisted. A change that was rolled back leaves no revision behind.
 4. **Revisions are append-only.** The gem creates revisions and never updates or deletes them. Cleaning up history is the host app's decision.

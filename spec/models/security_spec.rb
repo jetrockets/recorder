@@ -53,11 +53,34 @@ RSpec.describe Security do
   end
 
   describe 'when recording is disabled' do
-    it 'records nothing' do
+    def create_security
+      described_class.create!(name: 'Facebook', identifier: 'FB')
+    end
+
+    it 'records nothing while the request has it off' do
       Recorder.store.recorder_disabled!
 
-      expect { described_class.create!(name: 'Facebook', identifier: 'FB') }
-        .not_to change(Recorder::Revision, :count)
+      expect { create_security }.not_to change(Recorder::Revision, :count)
+    end
+
+    it 'records nothing while the process has it off' do
+      Recorder.enabled = false
+
+      expect { create_security }.not_to change(Recorder::Revision, :count)
+    end
+
+    it 'records nothing while the process has it off, even if the request has it on' do
+      Recorder.enabled = false
+      Recorder.store.recorder_enabled!
+
+      expect { create_security }.not_to change(Recorder::Revision, :count)
+    end
+
+    it 'records again once the process has it back on' do
+      Recorder.enabled = false
+      Recorder.enabled = true
+
+      expect { create_security }.to change(Recorder::Revision, :count).by(1)
     end
   end
 end
