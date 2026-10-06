@@ -173,6 +173,18 @@ The concern reads `current_user`; override `recorder_user_id` to name a differen
 method. Override `recorder_meta` to store a hash alongside every revision. A
 revision without a user is valid — `user_id` stays `nil`.
 
+A revision's `action_date` is today in the application's time zone,
+`Date.current`. To date revisions otherwise, such as an import replaying past
+changes, set it yourself; it holds for the rest of the request or thread:
+
+```ruby
+Recorder.info = {action_date: Date.new(2020, 1, 1)}
+```
+
+`created_at` is always when the revision was written. `Recorder.info` raises
+`ArgumentError` for it and for the other columns Recorder writes itself: `id`,
+`item_type`, `item_id`, `event` and `data`.
+
 ### Turning recording off
 
 `Recorder::Manager` suspends recording for the current request or thread:

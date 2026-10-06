@@ -3,6 +3,45 @@
 require 'rails_helper'
 
 RSpec.describe Recorder::Tape::Record do
+  describe 'the action date' do
+    include ActiveSupport::Testing::TimeHelpers
+
+    def recorded_action_date
+      Security.create!(name: 'Facebook', identifier: 'FB')
+      Recorder::Revision.last.action_date
+    end
+
+    it 'is the date the request supplied' do
+      Recorder.info = {action_date: Date.new(2020, 1, 1)}
+
+      expect(recorded_action_date).to eq(Date.new(2020, 1, 1))
+    end
+
+    it 'is the date the request supplied under a string key' do
+      Recorder.info = {'action_date' => Date.new(2020, 1, 1)}
+
+      expect(recorded_action_date).to eq(Date.new(2020, 1, 1))
+    end
+
+    # At 10:00 UTC only UTC+14 has reached the next day, so the application's
+    # date differs from the server's wherever the suite runs.
+    it "defaults to today in the application's time zone" do
+      Time.use_zone('Pacific/Kiritimati') do
+        travel_to(Time.utc(2026, 10, 2, 10)) do
+          expect(recorded_action_date).to eq(Date.new(2026, 10, 3))
+        end
+      end
+    end
+
+    [nil, ''].each do |blank|
+      it "defaults to today when the request supplied #{blank.inspect}" do
+        Recorder.info = {action_date: blank}
+
+        expect(recorded_action_date).to eq(Date.current)
+      end
+    end
+  end
+
   # Examples already run inside a transaction, so a rollback needs a savepoint
   # of its own.
   def roll_back

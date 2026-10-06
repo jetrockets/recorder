@@ -76,6 +76,28 @@ module Recorder
       end
     end
 
+    describe '.ordered_by_created_at' do
+      let(:security) { Security.create!(name: 'Facebook', identifier: 'FB') }
+
+      def events_in_order
+        security.revisions.ordered_by_created_at.pluck(:event)
+      end
+
+      it 'returns the newest revision first' do
+        security.update!(name: 'Meta')
+        security.revisions.where(event: 'create').update_all(created_at: 1.day.ago)
+
+        expect(events_in_order).to eq(%w[update create])
+      end
+
+      it 'returns revisions written in the same instant newest first' do
+        security.update!(name: 'Meta')
+        security.revisions.update_all(created_at: Time.current)
+
+        expect(events_in_order).to eq(%w[update create])
+      end
+    end
+
     # The changeset is rebuilt from values that have been through the `jsonb`
     # column, so every attribute comes back out as a string and is cast again.
     describe '#item_changeset' do
