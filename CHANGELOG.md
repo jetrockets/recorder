@@ -112,6 +112,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Revision#association_changeset` returns `nil` when the revision holds no
   changes for that association, or when the item is gone or no longer has that
   association set. It used to raise `KeyError` or `NoMethodError`.
+- **Breaking.** A `destroy` revision's `changes` hold only the entries from
+  `changes:`, and the key is omitted when there are none. They used to carry
+  the record's `saved_changes`, which `destroy` does not clear, so destroying a
+  record saved earlier through the same instance repeated that save's diff, as
+  if the deletion had changed those attributes. The `attributes` snapshot is
+  unchanged and remains the record of what was deleted. Existing destroy
+  revisions keep the stale `changes`.
 
 ## [1.4.0]
 

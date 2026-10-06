@@ -83,8 +83,9 @@ attribute's entry. An update that reports only custom entries still records a
 revision.
 
 Inside the callback, read `saved_changes` and `saved_change_to_<attribute>?`, not
-`<attribute>_changed?`: the callback runs from `after_create`/`after_update`, where
-the dirty state has already been reset.
+`<attribute>_changed?`: the callback runs from `after_create`, `after_update` and
+`after_destroy`, where the dirty state has already been reset. On `:destroy`,
+`saved_changes` still holds the record's last save, not the deletion.
 
 `Recorder::Changeset` rebuilds the previous and next versions by assigning each
 change onto a copy of the record, and skips what it cannot assign: a key that is
@@ -234,8 +235,8 @@ changed:
   ran, filtered by the model's `only:` or `ignore:` and, failing those, by
   `Recorder.config.ignore`. Always present.
 - `changes` — the same filter applied to `saved_changes`, as
-  `name => [old, new]`, plus any entries from `changes:`. Omitted when that
-  leaves nothing.
+  `name => [old, new]`, plus any entries from `changes:`. On `destroy`, only
+  the entries from `changes:`. Omitted when that leaves nothing.
 - `associations` — on `create` and `destroy`, an `attributes` snapshot of each
   association named in `associations:`, filtered by that association's own
   `only:` or `ignore:`. Omitted on `update`, and when no named association is
@@ -246,8 +247,9 @@ changed:
 The snapshot is the contract, not an accident of the implementation: a
 revision's `attributes` are self-contained, so reconstructing a record at a
 point in time does not mean replaying every prior diff. It is also what keeps a
-`destroy` revision useful, since the row it describes is gone. Association
-snapshots exist only on `create` and `destroy` revisions.
+`destroy` revision useful, since the row it describes is gone: its `attributes`
+are the record as it was deleted. Association snapshots exist only on `create`
+and `destroy` revisions.
 
 An `update` records a revision only when the record reports a change; `create`
 and `destroy` always record one.
@@ -310,10 +312,6 @@ The gem is under active maintenance and these defects are known:
   under a fiber scheduler, is recorded.
 - Collection associations are never recorded. `associations:` handles only
   singular associations; a `has_many` reflection is skipped without a warning.
-- A `destroy` revision carries a `changes` key describing the record's last
-  *update*. `destroy` does not clear `saved_changes`, and `data` is built the
-  same way for every event. The `attributes` snapshot is the accurate record of
-  what was deleted.
 
 ## Development
 

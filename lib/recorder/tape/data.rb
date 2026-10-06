@@ -30,7 +30,7 @@ module Recorder
       end
 
       def changes_for(event, options)
-        changes = sanitize_attributes(item.saved_changes, options).merge(custom_changes_for(event, options))
+        changes = attribute_changes_for(event, options).merge(custom_changes_for(event, options))
 
         changes.present? ? {changes: changes} : {}
       end
@@ -44,6 +44,13 @@ module Recorder
       end
 
       private
+
+      # `destroy` leaves `saved_changes` holding the record's last save.
+      def attribute_changes_for(event, options)
+        return {} if event.to_sym == :destroy
+
+        sanitize_attributes(item.saved_changes, options)
+      end
 
       def custom_changes_for(event, options)
         callback = options[:changes]
