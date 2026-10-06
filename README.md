@@ -92,10 +92,21 @@ not an attribute, and any value that is not a two-element `[old, new]` pair. To 
 a key, define `previous_<key>`/`next_<key>` on the model's changeset class, and
 pick a name that `Recorder::Changeset` does not already answer to.
 
+Option names can be symbols or strings, in `recorder` and in each association's
+options. `recorder` raises `ArgumentError` for any other option, so a misspelt
+one fails where it is written, and for an option given both as a symbol and as a
+string. `async:` and `delay:` are accepted with a deprecation warning and have
+no effect; they raise from 2.1.0. The deprecation goes through
+`Recorder.deprecator`, which on Rails 7.1 and later is registered in
+`Rails.application.deprecators` and follows the application's deprecation
+settings.
+
+`Model.recorder_options` returns the declared options with symbol keys, frozen.
+
 A model that needs to decide its options per record can define
 `recorder_options` as an instance method. It replaces what was passed to
 `recorder` rather than merging with it, so it has to return every option the
-model needs:
+model needs, with symbol keys; its result is used as it is, unchecked:
 
 ```ruby
 def recorder_options
@@ -121,14 +132,14 @@ class Bond < Instrument
 end
 ```
 
-`super` returns the parent's options, by default the hash it declared, which
-every subclass shares: build a new one, such as `super.merge(...)` or
-`[*super[:ignore], :coupon]`, rather than changing it in place. The result is
-applied as if it had been declared. The usual rules hold: `only:` takes
-precedence over `ignore:`, so adding to `ignore:` has no effect under a parent
-that declares `only:`, and an `ignore:` replaces `Recorder.config.ignore`, so a
-subclass adding one under a parent that declares none has to repeat the global
-list.
+`super` returns a copy of the parent's options, which the override can change
+in place or build on. The result is applied as if it had been declared. A
+`recorder_options` class method that calls `super` gets the frozen options every
+subclass shares, so it builds a new hash, such as `super.merge(...)`. The usual
+rules hold: `only:` takes precedence over `ignore:`, so adding to `ignore:` has
+no effect under a parent that declares `only:`, and an `ignore:` replaces
+`Recorder.config.ignore`, so a subclass adding one under a parent that declares
+none has to repeat the global list.
 
 ### Global configuration
 

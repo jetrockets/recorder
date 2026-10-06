@@ -12,6 +12,9 @@ require 'action_controller/railtie'
 # you've limited to :test, :development, or :production.
 Bundler.require(*Rails.groups)
 
+# spec_helper requires recorder before Rails, which skips its railtie.
+require 'recorder/rails/railtie'
+
 module Dummy
   class Application < Rails::Application
     # Follow the framework defaults of whichever Rails is installed. Set

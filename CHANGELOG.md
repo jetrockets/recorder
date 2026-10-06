@@ -23,6 +23,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   revision's, so `created_at` was not reliably when the revision was written;
   to date revisions otherwise, set `action_date`. The other keys were silently
   overwritten by the revision's own values.
+- **Breaking.** `recorder` raises `ArgumentError` for an option it does not
+  know, in its own options or in an association's, so a misspelt one such as
+  `ignores:` fails where it is written. It also raises for options that are not
+  a hash, for an option name that is neither a symbol nor a string, for an
+  option given both as a symbol and as a string, for `associations:` that is
+  neither a hash nor an array, and for an association whose options are not a
+  hash. These were stored and ignored, or failed when a record was saved.
+- **Breaking.** The `recorder_options` class method returns the declared
+  options frozen, as a plain `Hash` with symbol keys, even when they were
+  declared as a `HashWithIndifferentAccess`, so a string key such as
+  `recorder_options['ignore']` returns `nil`. A `recorder_options` class method
+  that changes `super` in place raises `FrozenError`; build a new hash, such as
+  `super.merge(...)`. The `recorder_options` instance method returns a copy,
+  which an override may change.
+
+### Deprecated
+
+- `async:` and `delay:` passed to `recorder` print a deprecation warning and
+  have no effect. They are removed in 2.1.0, where passing them raises
+  `ArgumentError`. The warning goes through `Recorder.deprecator`, which on
+  Rails 7.1 and later is registered in `Rails.application.deprecators`, so the
+  application's deprecation settings apply to it.
 
 ### Removed
 
@@ -34,8 +56,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   so a save that rolled back still wrote a revision once the job ran, and the
   revision's `created_at` and `id` followed the job rather than the change.
   `async:` and `delay:` passed to `recorder` have no effect, as they had none
-  from 1.2.2 on; remove them. Setting `Recorder.config.async` or
-  `Recorder.config.sidekiq_options` raises `NoMethodError`. An app that set
+  from 1.2.2 on, and print a deprecation warning; remove them. Setting
+  `Recorder.config.async` or `Recorder.config.sidekiq_options` raises
+  `NoMethodError`. An app that set
   `Recorder.config.async = true` should set it to `false` on 1.x first and let
   the jobs already pushed finish, the scheduled and retrying ones included,
   before upgrading: a job left behind fails once the worker class is gone, and
@@ -43,6 +66,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Options passed to `recorder` with string keys, such as `'ignore' => [...]`,
+  are applied, in its own options and in an association's. They used to be
+  ignored, and the model recorded as if they were not given.
+- `recorder` keeps its own copy of the options, so changing the hash it was
+  given afterwards changes nothing, and a `recorder_options` instance method
+  that changes `super` in place changes only its own copy. Either used to
+  change the options of the declaring class and every subclass for the rest of
+  the process.
 - **Breaking.** `Recorder.enabled = false` switches recording off, for the
   whole process. It used to report recording as off while every change was
   still recorded, so a script that set it, such as a backfill or a data
