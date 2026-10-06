@@ -2,6 +2,7 @@
 
 require 'recorder/tape'
 require 'active_support/concern'
+require 'active_support/core_ext/object/deep_dup'
 
 module Recorder
   module Observer
@@ -21,14 +22,15 @@ module Recorder
       recorder_dirty? && Recorder.recording?
     end
 
-    # Options passed to `.recorder`. A model may define this itself to decide
-    # them per record.
+    # A copy of the options passed to `.recorder`, which the caller may change.
+    # A model may define this itself to decide them per record.
     def recorder_options
-      self.class.recorder_options
+      self.class.recorder_options.deep_dup
     end
 
     class_methods do
-      # The options passed to `.recorder` in this class or the nearest ancestor.
+      # The options passed to `.recorder` in this class or the nearest ancestor,
+      # frozen and with symbol keys.
       def recorder_options
         return @recorder_options if defined?(@recorder_options)
 
@@ -45,7 +47,7 @@ module Recorder
             '`recorder_options` instance method where a subclass needs other options.'
         end
 
-        Recorder::Tape::Data.validate_changes_option!(options[:changes])
+        options = Recorder::Options.normalize(options, caller_locations(1))
 
         after_create do
           Recorder::Tape.new(self).record_create if recorder_record?

@@ -1,14 +1,18 @@
 # frozen_string_literal: true
 
+require 'active_support/deprecation'
+
 require 'recorder/config'
 require 'recorder/version'
 
 require 'recorder/changeset'
 require 'recorder/store'
 require 'recorder/manager'
+require 'recorder/options'
 require 'recorder/observer'
 
 require 'recorder/rails/controller_concern'
+require 'recorder/rails/railtie' if defined?(::Rails::Railtie)
 
 module Recorder
   # Columns Recorder writes itself, which `Recorder.info` cannot set.
@@ -74,6 +78,14 @@ module Recorder
       @config ||= Recorder::Config.instance
       yield @config if block_given?
       @config
+    end
+
+    # Warns about Recorder features that are going away. On Rails 7.1 and
+    # later it is registered in `Rails.application.deprecators`, so the
+    # application's deprecation settings apply to it.
+    # @api public
+    def deprecator
+      @deprecator ||= ActiveSupport::Deprecation.new('2.1.0', 'Recorder')
     end
 
     # Thread-safe hash to hold Recorder's data.
