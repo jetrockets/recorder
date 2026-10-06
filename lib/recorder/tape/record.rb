@@ -6,7 +6,11 @@ module Recorder
       def record(params)
         return unless Recorder.recording?
 
-        Recorder::Revision.create(params_for(params))
+        Recorder::Revision.create!(params_for(params))
+      # Re-raised as an error Active Record's save does not rescue, so the save
+      # fails, whichever method it was made with.
+      rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotSaved => e
+        raise Recorder::RevisionNotSaved.new("Recorder could not write the revision: #{e.message}", e.record)
       end
 
       private
