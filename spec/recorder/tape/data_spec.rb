@@ -59,7 +59,7 @@ RSpec.describe Recorder::Tape::Data do
         end
       end
 
-      context 'and item associations have changed' do
+      context 'and only an associated record has changed' do
         let(:options) { {only: %i[type name], associations: {guard: {only: %i[type name]}}} }
         let(:guard) { Security.create!(type: 'guard', name: 'guard', identifier: 'guard') }
 
@@ -68,29 +68,25 @@ RSpec.describe Recorder::Tape::Data do
           guard.update!(name: 'guardian')
         end
 
-        it 'returns data for :update event' do
-          expect(data_for).to eq({
-            attributes: {type: 'type', name: 'name'},
-            associations: {
-              guard: {
-                attributes: {type: 'guard', name: 'guardian'},
-                changes: {name: %w[guard guardian]}
-              }
-            }
-          })
+        it 'returns an empty hash' do
+          expect(data_for).to eq({})
         end
       end
 
-      context 'and item associations have not changed' do
+      context 'and the item has changed and declares associations' do
         let(:options) { {only: %i[type name], associations: {guard: {only: %i[type name]}}} }
         let(:guard) { Security.create!(type: 'guard', name: 'guard', identifier: 'guard') }
 
-        # reload clears the saved_changes left by create!, which is what
-        # #changes_for reads. Without it the guard counts as changed.
-        before { item.guard = guard.reload }
+        before do
+          item.guard = guard
+          allow(item).to receive(:saved_changes).and_return({name: ['security', 'name']})
+        end
 
-        it 'returns an empty hash' do
-          expect(data_for).to eq({})
+        it 'returns data without associations' do
+          expect(data_for).to eq(
+            attributes: {type: 'type', name: 'name'},
+            changes: {name: ['security', 'name']}
+          )
         end
       end
     end
@@ -325,6 +321,39 @@ RSpec.describe Recorder::Tape::Data do
 
     context 'when options[:associations] is blank' do
       let(:options) { {} }
+
+      it 'returns an empty hash' do
+        expect(associations_for).to eq({})
+      end
+    end
+
+    context 'when the associated record was saved earlier' do
+      let(:options) { {associations: {guard: {only: %i[type name]}}} }
+      let(:guard) { Security.create!(type: 'guard', name: 'guard', identifier: 'guard') }
+
+      before { item.guard = guard }
+
+      it 'records its snapshot without the changes of that save' do
+        expect(associations_for).to eq(associations: {guard: {attributes: {type: 'guard', name: 'guard'}}})
+      end
+    end
+
+    context 'when event is :destroy' do
+      let(:associations_for) { data.associations_for(:destroy, options) }
+      let(:options) { {associations: {guard: {only: %i[name]}}} }
+
+      before { item.guard = Security.create!(name: 'guard', identifier: 'guard') }
+
+      it 'records the snapshot' do
+        expect(associations_for).to eq(associations: {guard: {attributes: {name: 'guard'}}})
+      end
+    end
+
+    context 'when event is :update' do
+      let(:associations_for) { data.associations_for(:update, options) }
+      let(:options) { {associations: {guard: {only: %i[name]}}} }
+
+      before { item.guard = Security.create!(name: 'guard', identifier: 'guard') }
 
       it 'returns an empty hash' do
         expect(associations_for).to eq({})

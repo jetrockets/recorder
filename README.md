@@ -71,7 +71,7 @@ Recorder supports the following options:
 
  * `ignore: [array]` - attributes that are ignored on logging. Replaces `Recorder.config.ignore` for this model rather than adding to it;
  * `only: [array]` - only these attributes are logged, other attributes are ignored. `Recorder.config.ignore` does not apply, so a listed attribute is logged even if the global list ignores it. Takes precedence over `ignore:`;
- * `associations: {hash} (hash)` - allows to set what associations will be logged alongside with the model. For each association you can also set ignore and only options, which follow the same rules; an association given neither falls back to `Recorder.config.ignore`;
+ * `associations: {hash} (hash)` - allows to set what associations will be logged alongside with the model, as a snapshot on `create` and `destroy`. For each association you can also set ignore and only options, which follow the same rules; an association given neither falls back to `Recorder.config.ignore`;
  * `changes: Proc | Symbol` - extra entries to merge into a revision's `changes`. A Proc
    is evaluated on the record, a Symbol names a method on it; both receive the event
    (`:create`, `:update` or `:destroy`) and return a hash of `name => [old, new]`, or
@@ -215,16 +215,21 @@ changed:
 - `changes` — the same filter applied to `saved_changes`, as
   `name => [old, new]`, plus any entries from `changes:`. Omitted when that
   leaves nothing.
-- `associations` — those two keys again, one entry per association named in
-  `associations:`. Omitted when no association reports anything.
+- `associations` — on `create` and `destroy`, an `attributes` snapshot of each
+  association named in `associations:`, filtered by that association's own
+  `only:` or `ignore:`. Omitted on `update`, and when no named association is
+  set. An associated record's changes are not recorded: they belong to its own
+  revisions, and replacing a `belongs_to` target shows up as the foreign key in
+  `changes`, unless `only:` or `ignore:` leaves it out.
 
-The snapshot is the contract, not an accident of the implementation: a revision
-is self-contained, so reconstructing a record at a point in time does not mean
-replaying every prior diff. It is also what keeps a `destroy` revision useful,
-since the row it describes is gone.
+The snapshot is the contract, not an accident of the implementation: a
+revision's `attributes` are self-contained, so reconstructing a record at a
+point in time does not mean replaying every prior diff. It is also what keeps a
+`destroy` revision useful, since the row it describes is gone. Association
+snapshots exist only on `create` and `destroy` revisions.
 
-An `update` records a revision only when the record or one of its recorded
-associations reports a change; `create` and `destroy` always record one.
+An `update` records a revision only when the record reports a change; `create`
+and `destroy` always record one.
 
 `item_type` holds the model's `polymorphic_name`, the value Active Record
 writes to any polymorphic association, so `revisions`, `includes(:revisions)`
@@ -260,7 +265,9 @@ changeset.human_attribute_name(:title)
 changeset.previous_version            # a copy of the record with the old values
 ```
 
-Changed associations are reachable the same way:
+Revisions written before 2.0.0 can also hold an association's `changes`,
+reachable the same way. `changed_associations` lists the associations that hold
+some, and `association_changeset` returns `nil` for one that does not:
 
 ```ruby
 revision.changed_associations         # ["author"]

@@ -50,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     same holds for `only:`: an attribute it lists is recorded even if the
     global list ignores it. To keep the global list, repeat it, as in
     `ignore: [*Recorder.config.ignore, :token]`.
-  - `associations:` adds an `associations` key.
+  - `associations:` adds an `associations` key to create and destroy revisions.
 
   A `recorder_options` instance method on the model still takes precedence, and
   replaces the declared options rather than merging with them.
@@ -66,6 +66,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Queries that filter `item_type` by a subclass name stop matching new rows;
   filter by the base class, or by the snapshot's inheritance column. Existing
   rows are not rewritten; the README has a snippet that does it.
+- **Breaking.** A revision records each association named in `associations:`
+  as an `attributes` snapshot, on `create` and `destroy` only. It used to add
+  the associated record's `saved_changes`, which describe that in-memory
+  record's last save rather than the one being recorded. So a revision could
+  claim an association changed when it had not, and an update touching only
+  excluded attributes still wrote a revision whenever the associated record had
+  been saved earlier in the process. An associated record's changes belong to
+  its own revisions, so an edit saved through the item, with `autosave:` or
+  nested attributes, is recorded only when the associated model records itself
+  too. Replacing a `belongs_to` target shows up as the foreign key in the item's
+  `changes`; replacing a `has_one` target shows up only in the associated
+  records' own revisions. `update` revisions no longer carry `associations`.
+- **Breaking.** `Revision#changed_associations` lists only the associations
+  that hold changes, where it listed every recorded one.
+  `Revision#association_changeset` returns `nil` when the revision holds no
+  changes for that association, or when the item is gone or no longer has that
+  association set. It used to raise `KeyError` or `NoMethodError`.
 
 ## [1.4.0]
 

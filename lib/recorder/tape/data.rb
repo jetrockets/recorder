@@ -36,7 +36,9 @@ module Recorder
       end
 
       def associations_for(event, options)
-        associations = parse_associations_attributes(event, options)
+        return {} if event.to_sym == :update
+
+        associations = parse_associations_attributes(options)
 
         associations.present? ? {associations: associations} : {}
       end
@@ -70,38 +72,30 @@ module Recorder
         Array.wrap(values).map(&:to_sym)
       end
 
-      def parse_associations_attributes(event, options)
+      def parse_associations_attributes(options)
         return unless options[:associations]
 
         options[:associations].each_with_object({}) do |(association, options), hash|
-          name, data = parse_association(event, association, options)
+          name, data = parse_association(association, options)
 
-          hash[name] = data if data&.any?
+          hash[name] = data if data
         end
       end
 
-      def parse_association(event, association, options)
+      def parse_association(association, options)
         reflection = item.class.reflect_on_association(association)
 
         if reflection.present?
           if reflection.collection?
 
           elsif (object = item.send(association))
-            data = Recorder::Tape::Data.new(object).data_for(event, options || {})
-
-            [reflection.name, data]
+            [reflection.name, Recorder::Tape::Data.new(object).attributes_for(nil, options || {})]
           end
         end
       end
 
       def record_changed?(data, event)
-        event.to_sym != :update || data[:changes] || associations_changed?(data)
-      end
-
-      def associations_changed?(data)
-        return if data[:associations].nil?
-
-        data[:associations].any? { |name, association| association[:changes] }
+        event.to_sym != :update || data[:changes]
       end
     end
   end
