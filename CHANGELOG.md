@@ -38,8 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Breaking.** The options passed to `recorder` — `ignore:`, `only:`,
-  `associations:` and `changes:` — are applied again. Since 1.2.2 they were stored on the class while the recorder read them off the
-  record, so every model fell back to the global configuration. Models that
+  `associations:` and `changes:` — are applied again. Since 1.2.2 they were
+  stored on the class while the recorder read them off the record, so every
+  model fell back to the global configuration. Models that
   declare options now record what they asked for, which changes existing audit
   trails going forward:
   - `only:` and `ignore:` shrink the snapshot, and an update touching only

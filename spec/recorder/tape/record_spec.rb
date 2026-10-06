@@ -32,10 +32,20 @@ RSpec.describe Recorder::Tape::Record do
         .not_to change(Recorder::Revision, :count)
     end
 
-    it 'writes the revision before the save returns' do
-      security = Security.create!(name: 'Facebook', identifier: 'FB')
+    it 'writes the revision before the transaction commits' do
+      roll_back do
+        security = Security.create!(name: 'Facebook', identifier: 'FB')
 
-      expect(security.revisions.pluck(:event)).to eq(['create'])
+        expect(security.revisions.pluck(:event)).to eq(['create'])
+      end
+    end
+
+    it 'rolls the save back when the revision cannot be written' do
+      allow(Recorder::Revision).to receive(:create).and_raise(ActiveRecord::StatementInvalid)
+
+      expect { Security.create!(name: 'Facebook', identifier: 'FB') }
+        .to raise_error(ActiveRecord::StatementInvalid)
+      expect(Security.where(identifier: 'FB')).not_to exist
     end
   end
 end
