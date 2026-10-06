@@ -137,5 +137,91 @@ module Recorder
         expect(changeset.previous(:updated_at)).to be_a(ActiveSupport::TimeWithZone)
       end
     end
+
+    # An association entry may or may not hold `changes`.
+    describe 'association readers' do
+      let(:guard) { Instrument.create!(name: 'Meta', identifier: 'META') }
+      let(:instrument) { Instrument.create!(name: 'Instagram', identifier: 'IG', guard: guard) }
+      let(:revision) do
+        described_class.create!(
+          item: instrument, event: 'update', action_date: Date.current,
+          data: {attributes: {name: 'Instagram'}, associations: associations}
+        )
+      end
+
+      context 'when an association carries changes' do
+        let(:associations) do
+          {
+            guard: {attributes: {name: 'Meta'}, changes: {name: %w[Facebook Meta]}},
+            owner: {attributes: {name: 'Owner'}}
+          }
+        end
+
+        it 'lists only that association as changed' do
+          expect(revision.changed_associations).to eq(['guard'])
+        end
+
+        it 'returns its changeset' do
+          changeset = revision.association_changeset('guard')
+
+          aggregate_failures do
+            expect(changeset.previous(:name)).to eq('Facebook')
+            expect(changeset.next(:name)).to eq('Meta')
+          end
+        end
+      end
+
+      context 'when an association carries only its snapshot' do
+        let(:associations) { {guard: {attributes: {name: 'Meta'}}} }
+
+        it 'lists no changed associations' do
+          expect(revision.changed_associations).to eq([])
+        end
+
+        it 'returns no changeset' do
+          expect(revision.association_changeset('guard')).to be_nil
+        end
+      end
+
+      context 'when the revision has no associations' do
+        let(:revision) do
+          described_class.create!(item: instrument, event: 'update', action_date: Date.current, data: {attributes: {}})
+        end
+
+        it 'lists no changed associations' do
+          expect(revision.changed_associations).to eq([])
+        end
+
+        it 'returns no changeset' do
+          expect(revision.association_changeset('guard')).to be_nil
+        end
+      end
+
+      context 'when the associated record is no longer set' do
+        let(:associations) { {guard: {attributes: {name: 'Meta'}, changes: {name: %w[Facebook Meta]}}} }
+
+        before do
+          revision
+          instrument.update!(guard: nil)
+        end
+
+        it 'returns no changeset' do
+          expect(described_class.find(revision.id).association_changeset('guard')).to be_nil
+        end
+      end
+
+      context 'when the item no longer exists' do
+        let(:associations) { {guard: {attributes: {name: 'Meta'}, changes: {name: %w[Facebook Meta]}}} }
+
+        before do
+          revision
+          instrument.destroy!
+        end
+
+        it 'returns no changeset' do
+          expect(described_class.find(revision.id).association_changeset('guard')).to be_nil
+        end
+      end
+    end
   end
 end

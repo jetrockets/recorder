@@ -24,12 +24,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to date revisions otherwise, set `action_date`. The other keys were silently
   overwritten by the revision's own values.
 
+### Removed
+
+- **Breaking.** Asynchronous recording: the `async:` and `delay:` options,
+  `Recorder.config.async`, `Recorder.config.sidekiq_options` and
+  `Recorder::Sidekiq::RevisionsWorker`, with the railtie that loaded it. Every
+  revision is written in the save transaction, so the record and its revision
+  commit or roll back together. The job was pushed from inside that transaction,
+  so a save that rolled back still wrote a revision once the job ran, and the
+  revision's `created_at` and `id` followed the job rather than the change.
+  `async:` and `delay:` passed to `recorder` have no effect, as they had none
+  from 1.2.2 on; remove them. Setting `Recorder.config.async` or
+  `Recorder.config.sidekiq_options` raises `NoMethodError`. An app that set
+  `Recorder.config.async = true` should set it to `false` on 1.x first and let
+  the jobs already pushed finish, the scheduled and retrying ones included,
+  before upgrading: a job left behind fails once the worker class is gone, and
+  its revision is never written.
+
 ### Fixed
 
 - **Breaking.** The options passed to `recorder` — `ignore:`, `only:`,
-  `associations:`, `async:`, `delay:` and `changes:` — are applied again. Since
-  1.2.2 they were stored on the class while the recorder read them off the
-  record, so every model fell back to the global configuration. Models that
+  `associations:` and `changes:` — are applied again. Since 1.2.2 they were
+  stored on the class while the recorder read them off the record, so every
+  model fell back to the global configuration. Models that
   declare options now record what they asked for, which changes existing audit
   trails going forward:
   - `only:` and `ignore:` shrink the snapshot, and an update touching only
@@ -39,9 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     same holds for `only:`: an attribute it lists is recorded even if the
     global list ignores it. To keep the global list, repeat it, as in
     `ignore: [*Recorder.config.ignore, :token]`.
-  - `associations:` adds an `associations` key.
-  - `async: true` moves the write to Sidekiq, and raises `NameError` on save in
-    an app that does not have Sidekiq.
+  - `associations:` adds an `associations` key to create and destroy revisions.
 
   A `recorder_options` instance method on the model still takes precedence, and
   replaces the declared options rather than merging with them.
@@ -69,6 +84,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   by `id`, newest first. They used to come back in whatever order the database
   returned them, so the latest of two revisions written in the same instant
   was not reliably `first`.
+- **Breaking.** A revision records each association named in `associations:`
+  as an `attributes` snapshot, on `create` and `destroy` only. It used to add
+  the associated record's `saved_changes`, which describe that in-memory
+  record's last save rather than the one being recorded. So a revision could
+  claim an association changed when it had not, and an update touching only
+  excluded attributes still wrote a revision whenever the associated record had
+  been saved earlier in the process. An associated record's changes belong to
+  its own revisions, so an edit saved through the item, with `autosave:` or
+  nested attributes, is recorded only when the associated model records itself
+  too. Replacing a `belongs_to` target shows up as the foreign key in the item's
+  `changes`; replacing a `has_one` target shows up only in the associated
+  records' own revisions. `update` revisions no longer carry `associations`.
+- **Breaking.** `Revision#changed_associations` lists only the associations
+  that hold changes, where it listed every recorded one.
+  `Revision#association_changeset` returns `nil` when the revision holds no
+  changes for that association, or when the item is gone or no longer has that
+  association set. It used to raise `KeyError` or `NoMethodError`.
 
 ## [1.4.0]
 
