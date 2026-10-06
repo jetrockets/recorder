@@ -15,7 +15,7 @@ Recorder is an audit trail. Host apps build compliance, support and debugging fe
 3. **No phantom actions.** A revision describes a change that was really persisted. A change that was rolled back leaves no revision behind.
 4. **Revisions are append-only.** The gem creates revisions and never updates or deletes them. Cleaning up history is the host app's decision.
 5. **Attribution belongs to the moment of the action.** `user_id`, `ip`, `action_date` and `meta` come from the request that made the change, no matter when the row is written.
-6. **Sync and async record the same thing.** `async:` changes when the revision is written, never what it contains or whether it exists.
+6. **The revision is written in the save transaction.** The record and its revision commit or roll back together, which is what keeps 1, 3, 7 and 9. Deferring the write past commit, to a background job or an `after_commit` hook, gives up at least one of them.
 7. **History stays in order.** The revisions of one record can be sorted into the order the changes happened.
 8. **Old revisions stay readable.** Rows written by earlier versions of the gem live in host databases forever. The shape of `data` (`attributes`, `changes`, `associations`) and the meaning of each column are a public contract: extend them, do not rename, repurpose or drop them.
 9. **Recording does not alter the host app.** Observing a model never changes the record, its attributes or the outcome of the save. When a revision cannot be written, that surfaces as an error; it is never swallowed.
@@ -44,8 +44,7 @@ CI runs the suite across a Ruby × Rails matrix (`.github/workflows/ci.yml`) plu
 
 - `lib/recorder.rb` — entry point; requires everything else and defines the top-level `Recorder` API.
 - `lib/recorder/` — the library: `Observer`, `Tape` (with `Tape::Data` and `Tape::Record`), `Revision`, `Changeset`, `Config`, `Store`, `Manager`.
-- `lib/recorder/rails/` — the controller concern and the railtie.
-- `lib/recorder/sidekiq/` — the worker behind async recording.
+- `lib/recorder/rails/` — the controller concern.
 - `lib/generators/recorder/` — the `recorder:install` generator and its migration templates.
 - `spec/dummy/` — a minimal Rails app the specs boot; its models and migrations are spec fixtures.
 - `Appraisals` and `gemfiles/` — one gemfile per supported Rails version.
@@ -57,7 +56,7 @@ The flow of one recorded change, in the order the code runs:
 1. **Request context** — `Recorder::Rails::ControllerConcern` adds `before_action`s that put `user_id`, `ip`, `action_date` and `meta` into `Recorder.store.params`.
 2. **Opt-in** — a model includes `Recorder::Observer` and calls `recorder(...)` once per class hierarchy, which stores the options and registers `after_create`, `after_update` and `after_destroy` callbacks. Subclasses inherit both. Each callback builds a `Recorder::Tape` for the record.
 3. **Payload** — `Recorder::Tape::Data#data_for` builds `{attributes:, changes:, associations:}`: an attribute snapshot, the record's `saved_changes`, and the same two keys per recorded association.
-4. **Persist** — `Recorder::Tape::Record#record` merges the request context with the payload and either creates a `Recorder::Revision` or schedules `Recorder::Sidekiq::RevisionsWorker`, which creates it later.
+4. **Persist** — `Recorder::Tape::Record#record` merges the request context with the payload and creates a `Recorder::Revision`, still inside the save transaction.
 5. **Read back** — `Recorder::Revision#item_changeset` wraps `data['changes']` in a changeset class, resolved as the model's `recorder_changeset_class`, then `"#{Model}Changeset"`, then `Recorder::Changeset`.
 
 There are two separate kinds of state:
@@ -65,12 +64,10 @@ There are two separate kinds of state:
 - `Recorder.config` is a process-wide singleton holding global settings.
 - `Recorder.store` wraps `RequestStore`, so it is per-request: the request params from step 1 and the flag `Recorder::Manager` toggles.
 
-Sidekiq is not a dependency of the gem. The railtie requires the worker only when `Sidekiq` is defined.
-
 ## Specs
 
 - `spec/rails_helper.rb` resets the three places Recorder keeps state between examples: database rows (transactions), the `Config` singleton, and `RequestStore` plus the memoised `Recorder.store`. New state that outlives an example needs resetting there too.
-- `spec/support/sidekiq_stand_in.rb` defines a minimal `Sidekiq::Worker` so the worker class loads, then removes the `Sidekiq` constant so `defined?(Sidekiq)` stays false for the rest of the suite.
+- To roll a save back inside an example, open `transaction(requires_new: true)` and raise `ActiveRecord::Rollback`; `spec/recorder/tape/record_spec.rb` does this.
 - Examples run in random order.
 
 ## Conventions
