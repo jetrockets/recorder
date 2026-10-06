@@ -13,6 +13,18 @@ RSpec.describe Recorder do
     end
   end
 
+  describe '.deprecator' do
+    it 'names Recorder in its warnings' do
+      expect(described_class.deprecator.gem_name).to eq('Recorder')
+    end
+
+    it 'is registered with the application, where Rails keeps a registry' do
+      skip 'Rails::Application#deprecators arrived in Rails 7.1' unless Rails.application.respond_to?(:deprecators)
+
+      expect(Rails.application.deprecators[:recorder]).to equal(described_class.deprecator)
+    end
+  end
+
   describe '.recording?' do
     it 'is true by default' do
       expect(described_class.recording?).to be(true)
