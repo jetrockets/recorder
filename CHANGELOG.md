@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- README coverage of pointing `Revision#user` at a user model not named
+  `User`, by declaring the association again with `class_name:`. No behaviour
+  changes.
+
 ### Changed
 
 - **Breaking.** `recorder` can be called once per class hierarchy, and calling
