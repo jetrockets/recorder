@@ -359,5 +359,31 @@ RSpec.describe Recorder::Tape::Data do
         expect(associations_for).to eq({})
       end
     end
+
+    %i[create update destroy].each do |event|
+      context "when they name a collection, on #{event}" do
+        let(:associations_for) { data.associations_for(event, options) }
+        let(:options) { {associations: {wards: {only: %i[name]}}} }
+
+        it 'raises ArgumentError' do
+          expect { associations_for }.to raise_error(
+            ArgumentError,
+            '`associations:` names the collection :wards of Security; only singular associations are recorded'
+          )
+        end
+      end
+
+      context "when they name something that is not an association, on #{event}" do
+        let(:associations_for) { data.associations_for(event, options) }
+        let(:options) { {associations: {gaurd: {only: %i[name]}}} }
+
+        it 'raises ArgumentError' do
+          expect { associations_for }.to raise_error(
+            ArgumentError,
+            '`associations:` names :gaurd, which is not an association of Security'
+          )
+        end
+      end
+    end
   end
 end
