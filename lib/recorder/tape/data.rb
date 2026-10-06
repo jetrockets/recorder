@@ -35,10 +35,14 @@ module Recorder
         changes.present? ? {changes: changes} : {}
       end
 
+      # Raises ArgumentError on every event, update included, when
+      # `associations:` names a collection or something that is not an
+      # association.
       def associations_for(event, options)
+        reflections = association_reflections(options)
         return {} if event.to_sym == :update
 
-        associations = parse_associations_attributes(options)
+        associations = parse_associations_attributes(reflections)
 
         associations.present? ? {associations: associations} : {}
       end
@@ -72,25 +76,33 @@ module Recorder
         Array.wrap(values).map(&:to_sym)
       end
 
-      def parse_associations_attributes(options)
-        return unless options[:associations]
+      # Each association named in `associations:`, as its reflection and its own options.
+      def association_reflections(options)
+        return [] unless options[:associations]
 
-        options[:associations].each_with_object({}) do |(association, options), hash|
-          name, data = parse_association(association, options)
-
-          hash[name] = data if data
+        options[:associations].map do |association, association_options|
+          [reflection_for(association), association_options]
         end
       end
 
-      def parse_association(association, options)
+      def reflection_for(association)
         reflection = item.class.reflect_on_association(association)
 
-        if reflection.present?
-          if reflection.collection?
+        if reflection.nil?
+          raise ArgumentError, "`associations:` names #{association.inspect}, which is not an association of #{item.class}"
+        elsif reflection.collection?
+          raise ArgumentError, "`associations:` names the collection #{association.inspect} of #{item.class}; " \
+            'only singular associations are recorded'
+        end
 
-          elsif (object = item.send(association))
-            [reflection.name, Recorder::Tape::Data.new(object).attributes_for(nil, options || {})]
-          end
+        reflection
+      end
+
+      def parse_associations_attributes(reflections)
+        reflections.each_with_object({}) do |(reflection, options), hash|
+          object = item.send(reflection.name)
+
+          hash[reflection.name] = Recorder::Tape::Data.new(object).attributes_for(nil, options || {}) if object
         end
       end
 

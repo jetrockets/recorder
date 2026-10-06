@@ -112,6 +112,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Revision#association_changeset` returns `nil` when the revision holds no
   changes for that association, or when the item is gone or no longer has that
   association set. It used to raise `KeyError` or `NoMethodError`.
+- **Breaking.** `associations:` raises `ArgumentError` when it names a
+  collection (`has_many`, `has_and_belongs_to_many`) or a name that is not an
+  association of the model. Both used to be skipped without a warning, so the
+  revision silently lacked them. The check runs whenever a change is recorded,
+  update included, so a model declaring either fails every save until the entry
+  is removed. Only singular associations, `belongs_to` and `has_one`, are
+  recorded.
 
 ## [1.4.0]
 
