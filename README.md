@@ -83,8 +83,9 @@ attribute's entry. An update that reports only custom entries still records a
 revision.
 
 Inside the callback, read `saved_changes` and `saved_change_to_<attribute>?`, not
-`<attribute>_changed?`: the callback runs from `after_create`, `after_update` and
-`after_destroy`, where the dirty state has already been reset. On `:destroy`,
+`<attribute>_changed?`: on `:create` and `:update` the callback runs from
+`after_create`/`after_update`, where the dirty state has already been reset. On
+`:destroy` it runs from `after_destroy`, where `destroy` has reset nothing:
 `saved_changes` still holds the record's last save, not the deletion.
 
 `Recorder::Changeset` rebuilds the previous and next versions by assigning each
@@ -247,9 +248,8 @@ changed:
 The snapshot is the contract, not an accident of the implementation: a
 revision's `attributes` are self-contained, so reconstructing a record at a
 point in time does not mean replaying every prior diff. It is also what keeps a
-`destroy` revision useful, since the row it describes is gone: its `attributes`
-are the record as it was deleted. Association snapshots exist only on `create`
-and `destroy` revisions.
+`destroy` revision useful, since the row it describes is gone. Association
+snapshots exist only on `create` and `destroy` revisions.
 
 An `update` records a revision only when the record reports a change; `create`
 and `destroy` always record one.

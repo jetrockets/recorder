@@ -117,8 +117,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the record's `saved_changes`, which `destroy` does not clear, so destroying a
   record saved earlier through the same instance repeated that save's diff, as
   if the deletion had changed those attributes. The `attributes` snapshot is
-  unchanged and remains the record of what was deleted. Existing destroy
-  revisions keep the stale `changes`.
+  unchanged. Existing destroy revisions keep the stale `changes`.
 
 ## [1.4.0]
 
