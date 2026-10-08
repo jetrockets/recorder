@@ -97,6 +97,27 @@ RSpec.describe Recorder::Tape::Data do
       it 'returns data for :destroy event' do
         expect(data_for).to eq(attributes: {type: 'type', name: 'name'})
       end
+
+      context 'and the item was saved earlier' do
+        before do
+          allow(item).to receive(:saved_changes).and_return({name: ['security', 'name']})
+        end
+
+        it 'leaves out the changes of that save' do
+          expect(data_for).to eq(attributes: {type: 'type', name: 'name'})
+        end
+
+        context 'and a custom change is reported' do
+          let(:options) { {only: %i[type name], changes: ->(event) { {source: [nil, event]} }} }
+
+          it 'returns only the custom changes' do
+            expect(data_for).to eq(
+              attributes: {type: 'type', name: 'name'},
+              changes: {source: [nil, :destroy]}
+            )
+          end
+        end
+      end
     end
   end
 

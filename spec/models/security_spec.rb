@@ -50,6 +50,17 @@ RSpec.describe Security do
 
       expect(Recorder::Revision.order(:id).last.event).to eq('destroy')
     end
+
+    it 'records the snapshot without the changes of the last update' do
+      security.update!(name: 'Meta')
+      security.destroy!
+
+      data = Recorder::Revision.order(:id).last.data
+      aggregate_failures do
+        expect(data).not_to have_key('changes')
+        expect(data['attributes']).to include('name' => 'Meta', 'identifier' => 'FB')
+      end
+    end
   end
 
   describe 'when recording is disabled' do

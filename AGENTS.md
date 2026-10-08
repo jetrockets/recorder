@@ -55,7 +55,7 @@ The flow of one recorded change, in the order the code runs:
 
 1. **Request context** — `Recorder::Rails::ControllerConcern` adds `before_action`s that put `user_id`, `ip`, `action_date` and `meta` into `Recorder.store.params`.
 2. **Opt-in** — a model includes `Recorder::Observer` and calls `recorder(...)` once per class hierarchy, which stores the options and registers `after_create`, `after_update` and `after_destroy` callbacks. Subclasses inherit both. Each callback builds a `Recorder::Tape` for the record.
-3. **Payload** — `Recorder::Tape::Data#data_for` builds `{attributes:, changes:, associations:}`: an attribute snapshot, the record's `saved_changes`, and, on create and destroy, an attribute snapshot per recorded association.
+3. **Payload** — `Recorder::Tape::Data#data_for` builds `{attributes:, changes:, associations:}`: an attribute snapshot, the record's `saved_changes` except on destroy, and, on create and destroy, an attribute snapshot per recorded association.
 4. **Persist** — `Recorder::Tape::Record#record` merges the request context with the payload and creates a `Recorder::Revision`, still inside the save transaction.
 5. **Read back** — `Recorder::Revision#item_changeset` wraps `data['changes']` in a changeset class, resolved as the model's `recorder_changeset_class`, then `"#{Model}Changeset"`, then `Recorder::Changeset`.
 
