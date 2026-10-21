@@ -174,15 +174,20 @@ method. Override `recorder_meta` to store a hash alongside every revision. A
 revision without a user is valid — `user_id` stays `nil`.
 
 `revision.user` loads a `User` model. If your user model has another name,
-declare the association again in an initializer:
+declare the association again in a `to_prepare` block, so that it picks up the
+reloaded class in development:
 
 ```ruby
 # config/initializers/recorder.rb
-Recorder::Revision.belongs_to :user, class_name: 'Account', optional: true
+Rails.application.config.to_prepare do
+  Recorder::Revision.belongs_to :user, class_name: 'Account', optional: true
+end
 ```
 
-Keep `optional: true`. Without it, `belongs_to_required_by_default` makes the
-user required, and a change made with no user fails to record.
+Declaring it on every reload replaces the association each time. Keep
+`optional: true`. Without it, `belongs_to_required_by_default` makes the user
+required: a change made with no user, or by a user since deleted, writes no
+revision, and the save goes through without an error.
 
 A revision's `action_date` is today in the application's time zone,
 `Date.current`. To date revisions otherwise, such as an import replaying past
