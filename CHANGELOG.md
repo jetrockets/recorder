@@ -165,6 +165,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through without it. A transaction of your own that rescues the error
   commits the record without its revision. An app that adds validations or
   callbacks to `Recorder::Revision` sees them fail the save.
+- **Breaking.** A revision's `attributes`, and the `attributes` of each
+  association it records, hold the values the record last loaded from or
+  saved to the database: an attribute assigned and never saved keeps its
+  saved value. They used to be the in-memory values, which match the database
+  after a `create` or an `update` but not after a `destroy`, which saves
+  nothing, so a destroy revision could record values the deleted row never
+  held. On `destroy`, an associated record that was never saved is left out of
+  `associations`; the item's snapshot still holds the foreign key it was
+  saved with. Existing rows are not rewritten.
 
 ## [1.4.0]
 

@@ -25,7 +25,7 @@ module Recorder
       end
 
       def attributes_for(_event, options)
-        {attributes: sanitize_attributes(item.attributes, options)}
+        {attributes: sanitize_attributes(persisted_attributes, options)}
       end
 
       def self.validate_changes_option!(callback)
@@ -43,12 +43,20 @@ module Recorder
       def associations_for(event, options)
         return {} if event.to_sym == :update
 
-        associations = parse_associations_attributes(options)
+        associations = parse_associations_attributes(event, options)
 
         associations.present? ? {associations: associations} : {}
       end
 
       private
+
+      # The values the record last loaded or saved; one that was never saved
+      # has only its in-memory values.
+      def persisted_attributes
+        return item.attributes if item.new_record?
+
+        item.attributes.merge(item.attributes_in_database)
+      end
 
       # `destroy` leaves `saved_changes` holding the record's last save.
       def attribute_changes_for(event, options)
@@ -84,11 +92,11 @@ module Recorder
         Array.wrap(values).map(&:to_sym)
       end
 
-      def parse_associations_attributes(options)
+      def parse_associations_attributes(event, options)
         return unless options[:associations]
 
         options[:associations].each_with_object({}) do |(association, options), hash|
-          name, data = parse_association(association, options)
+          name, data = parse_association(event, association, options)
 
           hash[name] = data if data
         end
@@ -96,7 +104,7 @@ module Recorder
 
       # Logs a warning for a collection, and for a name that no class in the
       # item's hierarchy declares, and skips both.
-      def parse_association(association, options)
+      def parse_association(event, association, options)
         reflection = item.class.reflect_on_association(association)
 
         if reflection.nil?
@@ -106,9 +114,15 @@ module Recorder
         elsif reflection.collection?
           warn_unrecordable("names the collection #{association.inspect} of #{item.class}; " \
             'only singular associations are recorded')
-        elsif (object = item.send(association))
-          [reflection.name, Recorder::Tape::Data.new(object).attributes_for(nil, options || {})]
+        elsif (object = item.send(association)) && !unsaved_on_destroy?(object, event)
+          [reflection.name, Recorder::Tape::Data.new(object).attributes_for(event, options || {})]
         end
+      end
+
+      # A record that was never saved has no row for a destroy to describe; on
+      # create, Rails saves it in the same transaction.
+      def unsaved_on_destroy?(object, event)
+        event.to_sym == :destroy && object.new_record?
       end
 
       # Subclasses inherit `associations:`, so an entry can name an association
