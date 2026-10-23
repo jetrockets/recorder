@@ -1,8 +1,13 @@
 # frozen_string_literal: true
 
+require 'concurrent/map'
+
 module Recorder
   class Tape
     class Data
+      # The `associations:` warnings already logged, by class name and message.
+      WARNED = Concurrent::Map.new
+
       attr_reader :item
 
       def initialize(item)
@@ -106,15 +111,18 @@ module Recorder
         end
       end
 
-      # STI subclasses inherit `associations:`, so an entry can name an
-      # association that only a sibling declares.
+      # Subclasses inherit `associations:`, so an entry can name an association
+      # that only a sibling declares.
       def association_in_hierarchy?(association)
-        base_class = item.class.base_class
+        declared_in = item.class.recorder_declared_in || item.class
 
-        [base_class, *base_class.descendants].any? { |klass| klass.reflect_on_association(association) }
+        [declared_in, *declared_in.descendants].any? { |klass| klass.reflect_on_association(association) }
       end
 
+      # Once per class and message in a process.
       def warn_unrecordable(message)
+        return unless WARNED.put_if_absent([item.class.name, message], true).nil?
+
         item.class.logger&.warn("Recorder: `associations:` #{message}")
         nil
       end

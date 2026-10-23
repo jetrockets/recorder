@@ -5,10 +5,15 @@ require 'rails_helper'
 # A collection named in `associations:` is skipped with a warning, and the save
 # goes through.
 RSpec.describe Portfolio do
+  include Recorder::Manager
+
   let(:log) { StringIO.new }
   let(:warning) { 'Recorder: `associations:` names the collection :holdings of Portfolio' }
 
-  before { allow(described_class).to receive(:logger).and_return(Logger.new(log)) }
+  before do
+    Recorder::Tape::Data::WARNED.clear
+    allow(described_class).to receive(:logger).and_return(Logger.new(log))
+  end
 
   it 'records a create without the collection, and logs a warning' do
     portfolio = described_class.create!(name: 'Growth', identifier: 'GR')
@@ -19,16 +24,14 @@ RSpec.describe Portfolio do
     end
   end
 
-  context 'with a saved record' do
-    let!(:portfolio) { described_class.create!(name: 'Growth', identifier: 'GR') }
-
-    before { log.truncate(0) }
+  context 'with a record saved while recording was off' do
+    let!(:portfolio) { recorder_disabled! { described_class.create!(name: 'Growth', identifier: 'GR') } }
 
     it 'records an update, logging nothing' do
       portfolio.update!(name: 'Value')
 
       aggregate_failures do
-        expect(portfolio.revisions.count).to eq(2)
+        expect(portfolio.revisions.count).to eq(1)
         expect(log.string).to be_empty
       end
     end

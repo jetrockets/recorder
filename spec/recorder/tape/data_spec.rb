@@ -394,7 +394,10 @@ RSpec.describe Recorder::Tape::Data do
     context 'when they name something that cannot be recorded' do
       let(:log) { StringIO.new }
 
-      before { allow(item.class).to receive(:logger).and_return(Logger.new(log)) }
+      before do
+        Recorder::Tape::Data::WARNED.clear
+        allow(item.class).to receive(:logger).and_return(Logger.new(log))
+      end
 
       %i[create destroy].each do |event|
         context "when it is a collection, on #{event}" do
@@ -440,6 +443,32 @@ RSpec.describe Recorder::Tape::Data do
             expect(associations_for).to eq({})
             expect(log.string).to be_empty
           end
+        end
+      end
+
+      context 'when only a sibling under an abstract parent declares it' do
+        let(:item) { Fund.new(name: 'Fund', identifier: 'FD') }
+        let(:options) { {associations: {issuer: {}}} }
+
+        # Loads the sibling, as eager loading does.
+        before { Stock }
+
+        it 'skips it without a warning' do
+          aggregate_failures do
+            expect(associations_for).to eq({})
+            expect(log.string).to be_empty
+          end
+        end
+      end
+
+      context 'when it is met again' do
+        let(:options) { {associations: {gaurd: {only: %i[name]}}} }
+
+        it 'logs the warning once' do
+          data.associations_for(:create, options)
+          described_class.new(Security.new).associations_for(:destroy, options)
+
+          expect(log.string.scan('names :gaurd').size).to eq(1)
         end
       end
 
