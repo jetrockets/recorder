@@ -12,11 +12,14 @@ RSpec.describe Recorder::Tape::Record do
   end
 
   # Adds a callback to `Recorder::Revision` for the block, as a host app would.
+  # It is registered by name, which every supported Rails removes again.
   def with_revision_callback(kind, callback)
-    Recorder::Revision.set_callback(:create, kind, callback)
+    Recorder::Revision.define_method(:spec_callback, callback)
+    Recorder::Revision.set_callback(:create, kind, :spec_callback)
     yield
   ensure
-    Recorder::Revision.skip_callback(:create, kind, callback)
+    Recorder::Revision.skip_callback(:create, kind, :spec_callback)
+    Recorder::Revision.remove_method(:spec_callback)
   end
 
   describe 'the action date' do
