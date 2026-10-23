@@ -3,6 +3,25 @@
 require 'rails_helper'
 
 RSpec.describe Recorder::Tape::Record do
+  # Hands each revision to the block after Recorder builds it, before it is
+  # saved.
+  def each_revision
+    allow(Recorder::Revision).to receive(:new).and_wrap_original do |original, *args, &block|
+      original.call(*args, &block).tap { |revision| yield revision }
+    end
+  end
+
+  # Adds a callback to `Recorder::Revision` for the block, as a host app would.
+  # It is registered by name, which every supported Rails removes again.
+  def with_revision_callback(kind, callback)
+    Recorder::Revision.define_method(:spec_callback, callback)
+    Recorder::Revision.set_callback(:create, kind, :spec_callback)
+    yield
+  ensure
+    Recorder::Revision.skip_callback(:create, kind, :spec_callback)
+    Recorder::Revision.remove_method(:spec_callback)
+  end
+
   describe 'the action date' do
     include ActiveSupport::Testing::TimeHelpers
 
@@ -102,11 +121,105 @@ RSpec.describe Recorder::Tape::Record do
     end
 
     it 'rolls the save back when the revision cannot be written' do
-      allow(Recorder::Revision).to receive(:create).and_raise(ActiveRecord::StatementInvalid)
+      each_revision { |revision| allow(revision).to receive(:save!).and_raise(ActiveRecord::StatementInvalid) }
 
       expect { Security.create!(name: 'Facebook', identifier: 'FB') }
         .to raise_error(ActiveRecord::StatementInvalid)
       expect(Security.where(identifier: 'FB')).not_to exist
+    end
+  end
+
+  describe 'a revision that is not saved' do
+    def fail_revision_validation
+      each_revision { |revision| revision.item_type = nil }
+    end
+
+    it 'raises from save! and rolls the create back' do
+      fail_revision_validation
+
+      expect { Security.create!(name: 'Facebook', identifier: 'FB') }.to raise_error(Recorder::RevisionNotSaved)
+      expect(Security.where(identifier: 'FB')).not_to exist
+    end
+
+    # Active Record's save returns false on RecordInvalid, so this is the
+    # path a validation error alone would not fail.
+    it 'raises from save and rolls the create back' do
+      fail_revision_validation
+
+      expect { Security.new(name: 'Facebook', identifier: 'FB').save }.to raise_error(Recorder::RevisionNotSaved)
+      expect(Security.where(identifier: 'FB')).not_to exist
+    end
+
+    it 'raises from save in a transaction and rolls the transaction back' do
+      fail_revision_validation
+
+      expect { ActiveRecord::Base.transaction { Security.new(name: 'Facebook', identifier: 'FB').save } }
+        .to raise_error(Recorder::RevisionNotSaved)
+      expect(Security.where(identifier: 'FB')).not_to exist
+    end
+
+    it 'raises from update and rolls it back' do
+      security = Security.create!(name: 'Facebook', identifier: 'FB')
+      fail_revision_validation
+
+      expect { security.update(name: 'Meta') }.to raise_error(Recorder::RevisionNotSaved)
+      expect(security.reload.name).to eq('Facebook')
+    end
+
+    it 'raises from destroy and rolls it back' do
+      security = Security.create!(name: 'Facebook', identifier: 'FB')
+      fail_revision_validation
+
+      expect { security.destroy }.to raise_error(Recorder::RevisionNotSaved)
+      expect(Security.where(id: security.id)).to exist
+    end
+
+    it 'carries the revision and its validation errors' do
+      fail_revision_validation
+
+      expect { Security.create!(name: 'Facebook', identifier: 'FB') }.to raise_error(Recorder::RevisionNotSaved) do |error|
+        expect(error.record).to be_a(Recorder::Revision)
+        expect(error.message).to include("Item type can't be blank")
+      end
+    end
+
+    it 'raises when a callback halts the revision' do
+      with_revision_callback(:before, proc { throw :abort }) do
+        expect { Security.create!(name: 'Facebook', identifier: 'FB') }.to raise_error(Recorder::RevisionNotSaved)
+        expect(Security.where(identifier: 'FB')).not_to exist
+      end
+    end
+
+    it 'carries the revision when a callback on it fails another record' do
+      user = User.new.tap { |record| record.errors.add(:name, :blank) }
+
+      with_revision_callback(:before, proc { raise ActiveRecord::RecordInvalid, user }) do
+        expect { Security.create!(name: 'Facebook', identifier: 'FB') }.to raise_error(Recorder::RevisionNotSaved) do |error|
+          expect(error.record).to be_a(Recorder::Revision)
+          expect(error.message).to include("Name can't be blank")
+        end
+      end
+    end
+
+    # A callback on the revision saves another observed record, whose own
+    # revision fails. That failure is the error raised, wrapped once.
+    it 'passes on the failure of a revision written from its callback' do
+      failed = nil
+      each_revision do |revision|
+        next unless revision.item.identifier == 'IN'
+
+        failed = revision
+        revision.item_type = nil
+      end
+      nested = proc { Security.create!(name: 'Inner', identifier: 'IN') if item.identifier == 'FB' }
+
+      with_revision_callback(:after, nested) do
+        expect { Security.create!(name: 'Facebook', identifier: 'FB') }.to raise_error(Recorder::RevisionNotSaved) do |error|
+          expect(error.record).to equal(failed)
+          expect(error.message.scan('Recorder could not write the revision').size).to eq(1)
+        end
+      end
+      expect(Security.where(identifier: %w[FB IN])).not_to exist
     end
   end
 end

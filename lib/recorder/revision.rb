@@ -109,4 +109,8 @@ module Recorder
       klass.present? ? klass : Recorder::Changeset
     end
   end
+
+  # Raised from the save of an observed record when its revision fails
+  # validation or a callback halts it. `record` is the revision.
+  class RevisionNotSaved < ActiveRecord::RecordNotSaved; end
 end
