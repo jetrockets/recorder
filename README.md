@@ -212,8 +212,8 @@ end
 
 Declaring it on every reload replaces the association each time. Keep
 `optional: true`. Without it, `belongs_to_required_by_default` makes the user
-required: a change made with no user, or by a user since deleted, writes no
-revision, and the save goes through without an error.
+required: a change made with no user, or by a user since deleted, raises
+`Recorder::RevisionNotSaved`, and the save rolls back.
 
 A revision's `action_date` is today in the application's time zone,
 `Date.current`. To date revisions otherwise, such as an import replaying past
@@ -346,6 +346,88 @@ To render a changeset yourself, define `PostChangeset` — the class is looked u
 as `"#{model}Changeset"` — or point at another one with a
 `recorder_changeset_class` class method on the model. Otherwise
 `Recorder::Changeset` is used.
+
+## Upgrading to 2.0.0
+
+2.0.0 changes what Recorder writes to `recorder_revisions`. Existing rows are
+not rewritten, so a trail that spans the upgrade holds revisions of both
+shapes. [CHANGELOG.md](CHANGELOG.md) lists every change; this is the order to
+act on them in.
+
+### Before upgrading
+
+If `Recorder.config.async` is `true`, set it to `false` on 1.x, deploy that, and
+let the revision jobs already pushed finish, the scheduled and retrying ones
+included. 2.0.0 removes the worker, so a job still queued then fails and its
+revision is never written.
+
+### When upgrading
+
+These raise until they are changed. A `recorder` declaration raises when its
+class loads, so booting with `config.eager_load = true` finds every one:
+
+- Remove `async:` and `delay:` from `recorder`, and any assignment to
+  `Recorder.config.async` or `Recorder.config.sidekiq_options`.
+- Call `recorder` once per class hierarchy, in the topmost class that records.
+  A subclass that declared it again for other options defines a
+  `recorder_options` instance method instead; see [Subclasses](#subclasses).
+- Fix any option `recorder` does not know, in its own options or in an
+  association's, such as a misspelt `ignores:`.
+- Stop setting `created_at`, `id`, `item_type`, `item_id`, `event` or `data`
+  through `Recorder.info`. To date revisions otherwise, set `action_date`.
+- A `recorder_options` class method that changes `super` in place raises
+  `FrozenError` from the first save; build a new hash, such as
+  `super.merge(...)`.
+- Replace `recorder_dirty?`, `recorder_record?` and `@recorder_dirty = false`
+  with `recorder_disabled!`, and drop calls to
+  `Recorder.active_record_protected_attributes?`.
+
+These record differently without raising, so check each against what the app
+expects:
+
+- The options passed to `recorder` apply. Since 1.2.2 every model recorded under
+  the global configuration instead. A model that declares `only:` or `ignore:`
+  records a smaller snapshot, and an update touching only the attributes it
+  leaves out writes no revision. A per-model `ignore:` replaces
+  `Recorder.config.ignore`, so repeat the global list to keep it, as in
+  `ignore: [*Recorder.config.ignore, :token]`. `associations:` adds snapshots to
+  create and destroy revisions.
+- A subclass records under its parent's options, and an STI subclass's
+  revisions store the base class name in `item_type`.
+- `Recorder.enabled = false` switches recording off, so a script that sets it,
+  such as a backfill, writes no revisions.
+- A revision that cannot be written fails the save with
+  `Recorder::RevisionNotSaved` and rolls it back, where it used to be dropped.
+  That includes validations and callbacks the app added to
+  `Recorder::Revision`, and a `Revision#user` declared again without
+  `optional: true`; see [Recording the current user](#recording-the-current-user).
+- An app that loads a gem defining `ProtectedAttributes`, such as
+  `protected_attributes_continued`, starts recording. Every revision used to
+  fail validation and be dropped.
+- `Model.recorder_options` has symbol keys, so `recorder_options['ignore']`
+  returns `nil`.
+- `action_date` is today in the application's time zone, `Date.current`, where
+  it was the server's `Date.today`.
+
+### After upgrading
+
+Review what reads the trail:
+
+- Revisions an STI subclass wrote before the upgrade hold the subclass name, so
+  `revisions` does not find them; [Reading revisions](#reading-revisions) has a
+  snippet that rewrites them. A query that filters `item_type` by a subclass
+  name stops matching new rows; filter by the base class, or by the snapshot's
+  inheritance column.
+- New revisions record associations as snapshots on `create` and `destroy`
+  only, without their `changes`, and `update` revisions carry no
+  `associations`. `changed_associations` lists only the associations that hold
+  changes, and `association_changeset` returns `nil` where it raised.
+- A `destroy` revision's `changes` hold only the entries from `changes:`, and
+  the key is omitted when there are none.
+- Snapshots hold the values last loaded from or saved to the database, so a
+  `destroy` revision leaves out an assignment made since.
+- For changes made near midnight, `action_date` before the upgrade is the
+  server's date and after it the application's.
 
 ## Known issues
 
