@@ -54,7 +54,7 @@ module Recorder
             '`recorder_options` instance method where a subclass needs other options.'
         end
 
-        options = Recorder::Options.normalize(options, caller_locations(1))
+        options = Recorder::Options.normalize(options)
 
         after_create do
           Recorder::Tape.new(self).record_create if recorder_record?

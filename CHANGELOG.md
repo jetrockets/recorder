@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   option given both as a symbol and as a string, for `associations:` that is
   neither a hash nor an array, and for an association whose options are not a
   hash. These were stored and ignored, or failed when a record was saved.
+  `async:` and `delay:` raise too, with a message saying asynchronous recording
+  was removed.
 - **Breaking.** The `recorder_options` class method returns the declared
   options frozen, as a plain `Hash` with symbol keys, even when they were
   declared as a `HashWithIndifferentAccess`, so a string key such as
@@ -43,14 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that changes `super` in place raises `FrozenError`; build a new hash, such as
   `super.merge(...)`. The `recorder_options` instance method returns a copy,
   which an override may change.
-
-### Deprecated
-
-- `async:` and `delay:` passed to `recorder` print a deprecation warning and
-  have no effect. They are removed in 2.1.0, where passing them raises
-  `ArgumentError`. The warning goes through `Recorder.deprecator`, which on
-  Rails 7.1 and later is registered in `Rails.application.deprecators`, so the
-  application's deprecation settings apply to it.
 
 ### Removed
 
@@ -61,10 +55,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   commit or roll back together. The job was pushed from inside that transaction,
   so a save that rolled back still wrote a revision once the job ran, and the
   revision's `created_at` and `id` followed the job rather than the change.
-  `async:` and `delay:` passed to `recorder` have no effect, as they had none
-  from 1.2.2 on, and print a deprecation warning; remove them. Setting
-  `Recorder.config.async` or `Recorder.config.sidekiq_options` raises
-  `NoMethodError`. An app that set
+  `async:` and `delay:` passed to `recorder` raise `ArgumentError`; they had
+  no effect from 1.2.2 on, so remove them. Setting `Recorder.config.async` or
+  `Recorder.config.sidekiq_options` raises `NoMethodError`. An app that set
   `Recorder.config.async = true` should set it to `false` on 1.x first and let
   the jobs already pushed finish, the scheduled and retrying ones included,
   before upgrading: a job left behind fails once the worker class is gone, and

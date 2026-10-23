@@ -9,25 +9,19 @@ module Recorder
   module Options
     KEYS = %i[ignore only associations changes].freeze
     ASSOCIATION_KEYS = %i[ignore only].freeze
-    # Accepted with a deprecation warning, and otherwise ignored.
-    DEPRECATED_KEYS = %i[async delay].freeze
+    # Asynchronous recording was removed in 2.0.0.
+    REMOVED_KEYS = %i[async delay].freeze
 
     module_function
 
-    # @param callstack [Array<Thread::Backtrace::Location>] where the
-    #   deprecation warning points to
     # @raise [ArgumentError] for options that are not a Hash, an unknown key,
     #   or an option `Recorder::Tape::Data` cannot apply
-    def normalize(options, callstack)
+    def normalize(options)
       options = symbolize(options, '`recorder`')
-      deprecated = options.keys & DEPRECATED_KEYS
-      if deprecated.any?
-        Recorder.deprecator.warn(
-          '`async:` and `delay:` have no effect: every revision is written in the save transaction. ' \
-          'Remove them from `recorder`; they raise from Recorder 2.1.0.',
-          callstack
-        )
-        options = options.except(*deprecated)
+      removed = options.keys & REMOVED_KEYS
+      if removed.any?
+        raise ArgumentError, "`recorder` does not take #{removed.map { |key| "`#{key}:`" }.join(" or ")}: " \
+          'asynchronous recording was removed in 2.0.0, and every revision is written in the save transaction.'
       end
 
       options.assert_valid_keys(*KEYS)

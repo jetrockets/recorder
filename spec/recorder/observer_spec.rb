@@ -129,17 +129,11 @@ RSpec.describe Recorder::Observer do
         .to raise_error(ArgumentError, /ignore/)
     end
 
-    it 'warns that async: and delay: are deprecated, and records without them' do
+    it 'raises for async: and delay:, naming the ones given' do
       model = securities_model('Asynchronous')
-      allow(Recorder.deprecator).to receive(:warn)
 
-      model.recorder ignore: %i[identifier], async: true, delay: 5
-
-      aggregate_failures do
-        expect(Recorder.deprecator).to have_received(:warn).with(/`async:` and `delay:`.*2\.1\.0/m, anything)
-        expect(model.recorder_options).to eq(ignore: %i[identifier])
-        expect { model.create!(name: 'Facebook', identifier: 'FB') }.to change(Recorder::Revision, :count).by(1)
-      end
+      expect { model.recorder ignore: %i[identifier], async: true, delay: 5 }
+        .to raise_error(ArgumentError, /does not take `async:` or `delay:`.*removed in 2\.0\.0/)
     end
 
     it 'keeps a copy, so changing the hash it was given changes nothing' do

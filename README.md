@@ -97,11 +97,8 @@ pick a name that `Recorder::Changeset` does not already answer to.
 Option names can be symbols or strings, in `recorder` and in each association's
 options. `recorder` raises `ArgumentError` for any other option, so a misspelt
 one fails where it is written, and for an option given both as a symbol and as a
-string. `async:` and `delay:` are accepted with a deprecation warning and have
-no effect; they raise from 2.1.0. The deprecation goes through
-`Recorder.deprecator`, which on Rails 7.1 and later is registered in
-`Rails.application.deprecators` and follows the application's deprecation
-settings.
+string. `async:` and `delay:` raise too, with a message saying asynchronous
+recording was removed in 2.0.0.
 
 `Model.recorder_options` returns the declared options with symbol keys, frozen.
 

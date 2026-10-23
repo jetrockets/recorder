@@ -44,7 +44,7 @@ CI runs the suite across a Ruby × Rails matrix (`.github/workflows/ci.yml`) plu
 
 - `lib/recorder.rb` — entry point; requires everything else and defines the top-level `Recorder` API.
 - `lib/recorder/` — the library: `Observer`, `Tape` (with `Tape::Data` and `Tape::Record`), `Revision`, `Changeset`, `Config`, `Store`, `Manager`, `Options`.
-- `lib/recorder/rails/` — the controller concern, and the railtie that registers `Recorder.deprecator` with the host app.
+- `lib/recorder/rails/` — the controller concern.
 - `lib/generators/recorder/` — the `recorder:install` generator and its migration templates.
 - `spec/dummy/` — a minimal Rails app the specs boot; its models and migrations are spec fixtures.
 - `Appraisals` and `gemfiles/` — one gemfile per supported Rails version.
