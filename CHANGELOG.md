@@ -34,17 +34,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ignores:` fails where it is written. It also raises for options that are not
   a hash, for an option name that is neither a symbol nor a string, for an
   option given both as a symbol and as a string, for `associations:` that is
-  neither a hash nor an array, and for an association whose options are not a
-  hash. These were stored and ignored, or failed when a record was saved.
+  neither a hash nor an array, for an association name that is neither a symbol
+  nor a string or is given as both, and for an association whose options are
+  not a hash. These were stored and ignored, or failed when a record was saved.
   `async:` and `delay:` raise too, with a message saying asynchronous recording
   was removed.
 - **Breaking.** The `recorder_options` class method returns the declared
   options frozen, as a plain `Hash` with symbol keys, even when they were
   declared as a `HashWithIndifferentAccess`, so a string key such as
-  `recorder_options['ignore']` returns `nil`. A `recorder_options` class method
-  that changes `super` in place raises `FrozenError`; build a new hash, such as
-  `super.merge(...)`. The `recorder_options` instance method returns a copy,
-  which an override may change.
+  `recorder_options['ignore']` returns `nil`. Association names are symbols
+  too. A `recorder_options` class method that changes `super` in place raises
+  `FrozenError` from the first save that reads it, which rolls that save back;
+  build a new hash, such as `super.merge(...)`. The `recorder_options` instance
+  method returns a copy, which an override may change.
 
 ### Removed
 

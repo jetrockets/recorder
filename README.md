@@ -95,12 +95,14 @@ a key, define `previous_<key>`/`next_<key>` on the model's changeset class, and
 pick a name that `Recorder::Changeset` does not already answer to.
 
 Option names can be symbols or strings, in `recorder` and in each association's
-options. `recorder` raises `ArgumentError` for any other option, so a misspelt
-one fails where it is written, and for an option given both as a symbol and as a
-string. `async:` and `delay:` raise too, with a message saying asynchronous
-recording was removed in 2.0.0.
+options, and so can association names. `recorder` raises `ArgumentError` for
+any other option, so a misspelt one fails where it is written, for an option or
+association given both as a symbol and as a string, and for an association name
+that is neither. `async:` and `delay:` raise too, with a message saying
+asynchronous recording was removed in 2.0.0.
 
-`Model.recorder_options` returns the declared options with symbol keys, frozen.
+`Model.recorder_options` returns the declared options with symbol keys, the
+association names included, frozen.
 
 A model that needs to decide its options per record can define
 `recorder_options` as an instance method. It replaces what was passed to
@@ -134,7 +136,9 @@ end
 `super` returns a copy of the parent's options, which the override can change
 in place or build on. The result is applied as if it had been declared. A
 `recorder_options` class method that calls `super` gets the frozen options every
-subclass shares, so it builds a new hash, such as `super.merge(...)`. The usual
+subclass shares, so it builds a new hash, such as `super.merge(...)`; one that
+changes them in place raises `FrozenError` from the first save that reads it,
+which rolls that save back. The usual
 rules hold: `only:` takes precedence over `ignore:`, so adding to `ignore:` has
 no effect under a parent that declares `only:`, and an `ignore:` replaces
 `Recorder.config.ignore`, so a subclass adding one under a parent that declares

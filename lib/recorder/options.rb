@@ -9,6 +9,8 @@ module Recorder
   module Options
     KEYS = %i[ignore only associations changes].freeze
     ASSOCIATION_KEYS = %i[ignore only].freeze
+    # What a class whose hierarchy never called `.recorder` reports.
+    NONE = {}.freeze
     # Asynchronous recording was removed in 2.0.0.
     REMOVED_KEYS = %i[async delay].freeze
 
@@ -24,28 +26,51 @@ module Recorder
           'asynchronous recording was removed in 2.0.0, and every revision is written in the save transaction.'
       end
 
-      options.assert_valid_keys(*KEYS)
+      assert_known_keys(options, KEYS, '`recorder`')
       Recorder::Tape::Data.validate_changes_option!(options[:changes])
       options[:associations] = normalize_associations(options[:associations]) if options.key?(:associations)
 
       deep_freeze(options)
     end
 
-    # Takes a Hash of association name => options, or an Array of names.
+    # Takes a Hash of association name => options, or an Array of names, and
+    # symbolizes the names either way.
     def normalize_associations(associations)
-      return associations if associations.nil? || associations.is_a?(Array)
+      return if associations.nil?
+      return associations.map { |name| association_name(name) } if associations.is_a?(Array)
       unless associations.is_a?(Hash)
         raise ArgumentError, "`associations:` expects a Hash or an Array of names, got #{associations.inspect}"
       end
 
-      associations.to_h do |name, options|
-        next [name, nil] if options.nil?
+      associations.each_with_object({}) do |(name, options), normalized|
+        name = association_name(name)
+        raise ArgumentError, "`associations:` names `#{name}` both as a Symbol and as a String" if normalized.key?(name)
 
-        options = symbolize(options, "The options for association #{name.inspect}")
-        options.assert_valid_keys(*ASSOCIATION_KEYS)
-
-        [name, options]
+        normalized[name] = association_options(name, options)
       end
+    end
+
+    def association_name(name)
+      return name.to_sym if name.is_a?(Symbol) || name.is_a?(String)
+
+      raise ArgumentError, "`associations:` expects association names as Symbols or Strings, got #{name.inspect}"
+    end
+
+    def association_options(name, options)
+      return if options.nil?
+
+      owner = "`associations[#{name.inspect}]`"
+      options = symbolize(options, owner)
+      assert_known_keys(options, ASSOCIATION_KEYS, owner)
+      options
+    end
+
+    def assert_known_keys(options, keys, owner)
+      unknown = options.keys - keys
+      return if unknown.empty?
+
+      raise ArgumentError, "Unknown key#{"s" if unknown.many?}: #{unknown.map(&:inspect).join(", ")} in #{owner}. " \
+        "Valid keys are: #{keys.map(&:inspect).join(", ")}"
     end
 
     def symbolize(options, owner)

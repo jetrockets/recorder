@@ -34,7 +34,7 @@ module Recorder
       def recorder_options
         return @recorder_options if defined?(@recorder_options)
 
-        superclass.respond_to?(:recorder_options) ? superclass.recorder_options : {}
+        superclass.respond_to?(:recorder_options) ? superclass.recorder_options : Recorder::Options::NONE
       end
 
       # The class, this one or the nearest ancestor, that called `.recorder`.

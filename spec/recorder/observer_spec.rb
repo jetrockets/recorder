@@ -87,7 +87,29 @@ RSpec.describe Recorder::Observer do
       model = securities_model('MisspeltAssociation')
 
       expect { model.recorder associations: {guard: {onlly: %i[name]}} }
-        .to raise_error(ArgumentError, /Unknown key: :onlly/)
+        .to raise_error(ArgumentError, /Unknown key: :onlly in `associations\[:guard\]`/)
+    end
+
+    it 'symbolizes association names, in the Hash and the Array form' do
+      named = securities_model('NamedAssociations') { recorder associations: {'guard' => {'only' => %i[name]}} }
+      listed = securities_model('ListedStringAssociations') { recorder associations: %w[guard] }
+
+      expect([named, listed].map { |klass| klass.recorder_options[:associations].to_a.flatten })
+        .to eq([[:guard, {only: %i[name]}], [:guard]])
+    end
+
+    it 'raises for an association name that is neither a Symbol nor a String' do
+      model = securities_model('AssociationHashInArray')
+
+      expect { model.recorder associations: [{guard: {only: %i[name]}}] }
+        .to raise_error(ArgumentError, /association names as Symbols or Strings/)
+    end
+
+    it 'raises for an association named both as a Symbol and as a String' do
+      model = securities_model('TwinAssociation')
+
+      expect { model.recorder associations: {:guard => nil, 'guard' => {only: %i[name]}} }
+        .to raise_error(ArgumentError, /`guard` both as a Symbol and as a String/)
     end
 
     it 'raises for association options that are not a Hash' do
@@ -168,6 +190,7 @@ RSpec.describe Recorder::Observer do
 
       aggregate_failures do
         expect(model.recorder_options).to eq({})
+        expect(model.recorder_options).to be_frozen
         expect { model.create!(name: 'Facebook', identifier: 'FB') }.not_to change(Recorder::Revision, :count)
       end
     end
