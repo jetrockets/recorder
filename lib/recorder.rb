@@ -63,12 +63,6 @@ module Recorder
       store.params[:meta] = hash
     end
 
-    # Returns a boolean indicating whether "protected attibutes" should be
-    # configured, e.g. attr_accessible.
-    def active_record_protected_attributes?
-      @active_record_protected_attributes ||= !!defined?(ProtectedAttributes)
-    end
-
     # Returns Recorder's configuration object.
     # @api private
     def config

@@ -64,6 +64,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the jobs already pushed finish, the scheduled and retrying ones included,
   before upgrading: a job left behind fails once the worker class is gone, and
   its revision is never written.
+- **Breaking.** `Recorder.active_record_protected_attributes?`, and the
+  `attr_accessible` declaration on `Recorder::Revision` it guarded. They served
+  the `protected_attributes` gem, which supports only Rails 4, and named a
+  `user_agent` column the table does not have.
+- **Breaking.** The `recorder_dirty?` and `recorder_record?` instance methods
+  of observed models. Neither was documented, and both returned whether
+  recording was on. A model that overrode one to skip recording is recorded;
+  use `recorder_disabled!` to skip a change.
 
 ### Fixed
 

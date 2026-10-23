@@ -6,18 +6,6 @@ module Recorder
   class Revision < ActiveRecord::Base
     self.table_name = 'recorder_revisions'
 
-    if ::Recorder.active_record_protected_attributes?
-      attr_accessible(
-        :event,
-        :user_id,
-        :ip,
-        :user_agent,
-        :action_date,
-        :data,
-        :meta
-      )
-    end
-
     belongs_to :item, polymorphic: true, inverse_of: :revisions, optional: true
     belongs_to :user, optional: true
 
@@ -29,21 +17,6 @@ module Recorder
     # Newest first. Revisions written in the same instant fall back to the
     # order they were inserted in.
     scope :ordered_by_created_at, -> { order(created_at: :desc, id: :desc) }
-
-    # def item
-    #   return @item if defined?(@item)
-    #   return if item_id.nil?
-
-    #   @item = item_type.classify.constantize.new(data['attributes'])
-
-    #   if data['associations'].present?
-    #     data['associations'].each do |name, association|
-    #       @item.send("build_#{name}", association['attributes'])
-    #     end
-    #   end
-
-    #   @item
-    # end
 
     # Get changeset for an item
     # @return [Recorder::Changeset]
