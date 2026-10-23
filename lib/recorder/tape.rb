@@ -12,8 +12,6 @@ module Recorder
     def initialize(item)
       @item = item
       @data = Data.new(item)
-
-      item.instance_variable_set(:@recorder_dirty, true)
     end
 
     def record_create

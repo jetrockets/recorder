@@ -12,16 +12,6 @@ module Recorder
       has_many :revisions, class_name: '::Recorder::Revision', inverse_of: :item, as: :item
     end
 
-    def recorder_dirty?
-      return @recorder_dirty if defined?(@recorder_dirty)
-
-      true
-    end
-
-    def recorder_record?
-      recorder_dirty? && Recorder.recording?
-    end
-
     # A copy of the options passed to `.recorder`, which the caller may change.
     # A model may define this itself to decide them per record.
     def recorder_options
@@ -57,15 +47,15 @@ module Recorder
         options = Recorder::Options.normalize(options)
 
         after_create do
-          Recorder::Tape.new(self).record_create if recorder_record?
+          Recorder::Tape.new(self).record_create if Recorder.recording?
         end
 
         after_update do
-          Recorder::Tape.new(self).record_update if recorder_record?
+          Recorder::Tape.new(self).record_update if Recorder.recording?
         end
 
         after_destroy do
-          Recorder::Tape.new(self).record_destroy if recorder_record?
+          Recorder::Tape.new(self).record_destroy if Recorder.recording?
         end
 
         @recorder_options = options

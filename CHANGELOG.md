@@ -64,6 +64,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the jobs already pushed finish, the scheduled and retrying ones included,
   before upgrading: a job left behind fails once the worker class is gone, and
   its revision is never written.
+- **Breaking.** `Recorder.active_record_protected_attributes?`, which reported
+  whether the `ProtectedAttributes` constant was defined.
+- **Breaking.** The undocumented `recorder_dirty?` and `recorder_record?`
+  instance methods of observed models. A model that overrode one, or set
+  `@recorder_dirty = false` on a record, to skip recording is recorded, and
+  code that calls one raises `NoMethodError`. Use `recorder_disabled!` to skip
+  a change.
 
 ### Fixed
 
@@ -174,6 +181,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   held. On `destroy`, an associated record that was never saved is left out of
   `associations`; the item's snapshot still holds the foreign key it was
   saved with. Existing rows are not rewritten.
+- An app that loads a gem defining `ProtectedAttributes`, such as
+  `protected_attributes_continued`, records revisions. `Recorder::Revision`
+  declared `attr_accessible` whenever that constant was defined, and the list
+  left out `item_type` and `item_id`, so every revision failed validation and
+  was dropped.
 
 ## [1.4.0]
 
