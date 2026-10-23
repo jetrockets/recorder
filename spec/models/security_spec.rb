@@ -63,7 +63,6 @@ RSpec.describe Security do
     end
 
     it 'records the attributes as they are in the database, not an assignment that was never saved' do
-      security.reload
       security.name = 'Meta'
       security.destroy!
 

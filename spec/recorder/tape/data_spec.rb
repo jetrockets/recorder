@@ -432,8 +432,12 @@ RSpec.describe Recorder::Tape::Data do
 
       before { item.guard = Security.new(name: 'guard', identifier: 'guard') }
 
-      it 'leaves it out' do
-        expect(associations_for).to eq({})
+      it 'records its values on create' do
+        expect(associations_for).to eq(associations: {guard: {attributes: {name: 'guard'}}})
+      end
+
+      it 'leaves it out on destroy' do
+        expect(data.associations_for(:destroy, options)).to eq({})
       end
     end
 

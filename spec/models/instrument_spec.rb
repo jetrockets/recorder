@@ -130,14 +130,15 @@ RSpec.describe Instrument do
     end
 
     it 'records the association as it is in the database on destroy, not an assignment that was never saved' do
-      owned.reload.guard.name = 'Meta'
+      owned
+      instrument.name = 'Meta'
       owned.destroy!
 
       expect(last_revision(owned).data['associations']).to eq('guard' => {'attributes' => {'name' => 'Facebook'}})
     end
 
     it 'leaves out an associated record that was never saved on destroy' do
-      owned.reload.guard = described_class.new(name: 'Threads', identifier: 'TH')
+      owned.guard = described_class.new(name: 'Threads', identifier: 'TH')
       owned.destroy!
 
       data = last_revision(owned).data

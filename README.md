@@ -272,22 +272,23 @@ revision.action_date
 `data` carries a complete attribute snapshot on every event, not only what
 changed:
 
-- `attributes` — every attribute of the record as the database held it when
-  the callback ran, filtered by the model's `only:` or `ignore:` and, failing
-  those, by `Recorder.config.ignore`. Always present. An attribute assigned
-  and never saved is not recorded: after a `create` or an `update` memory and
-  database agree, and a `destroy` revision holds the row as it was when it was
-  deleted.
+- `attributes` — every attribute of the record, with the values it last loaded
+  from or saved to the database, filtered by the model's `only:` or `ignore:`
+  and, failing those, by `Recorder.config.ignore`. Always present. An
+  attribute assigned and never saved is not recorded: after a `create` or an
+  `update` memory and database agree, and a `destroy` revision holds the row
+  as the record last saw it, not an assignment made since.
 - `changes` — the same filter applied to `saved_changes`, as
   `name => [old, new]`, plus any entries from `changes:`. On `destroy`, only
   the entries from `changes:`. Omitted when that leaves nothing.
 - `associations` — on `create` and `destroy`, an `attributes` snapshot of each
   association named in `associations:`, filtered by that association's own
-  `only:` or `ignore:`. Omitted on `update`, and when no named association is
-  set or the associated record was never saved. An associated record's changes
-  are not recorded: they belong to its own revisions, and replacing a
-  `belongs_to` target shows up as the foreign key in `changes`, unless `only:`
-  or `ignore:` leaves it out.
+  `only:` or `ignore:`, with the same rule for unsaved assignments. Omitted on
+  `update`, when no named association is set, and on `destroy` when the
+  associated record was never saved. An associated record's changes are not
+  recorded: they belong to its own revisions, and replacing a `belongs_to`
+  target shows up as the foreign key in `changes`, unless `only:` or `ignore:`
+  leaves it out.
 
 The snapshot is the contract, not an accident of the implementation: a
 revision's `attributes` are self-contained, so reconstructing a record at a
