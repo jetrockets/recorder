@@ -7,7 +7,7 @@ module Recorder
   # symbol-keyed copy.
   # @api private
   module Options
-    KEYS = %i[ignore only associations changes].freeze
+    KEYS = %i[ignore only associations changes if unless].freeze
     ASSOCIATION_KEYS = %i[ignore only].freeze
     # What a class whose hierarchy never called `.recorder` reports.
     NONE = {}.freeze
@@ -17,7 +17,7 @@ module Recorder
     module_function
 
     # @raise [ArgumentError] for options that are not a Hash, an unknown key,
-    #   or an option `Recorder::Tape::Data` cannot apply
+    #   or an option `Recorder::Tape::Data` or the callbacks cannot apply
     def normalize(options)
       options = symbolize(options, '`recorder`')
       removed = options.keys & REMOVED_KEYS
@@ -28,9 +28,16 @@ module Recorder
 
       assert_known_keys(options, KEYS, '`recorder`')
       Recorder::Tape::Data.validate_changes_option!(options[:changes])
+      %i[if unless].each { |key| validate_condition(key, options[key]) if options.key?(key) }
       options[:associations] = normalize_associations(options[:associations]) if options.key?(:associations)
 
       deep_freeze(options)
+    end
+
+    def validate_condition(key, condition)
+      return if condition.is_a?(Symbol) || condition.is_a?(Proc)
+
+      raise ArgumentError, "`#{key}:` expects a method name as a Symbol or a Proc, got #{condition.inspect}"
     end
 
     # Takes a Hash of association name => options, or an Array of names, and
@@ -87,7 +94,7 @@ module Recorder
     end
 
     # Copies hashes, arrays and strings, so freezing them leaves the caller's
-    # own objects alone.
+    # own objects alone. A Proc is kept as it is, unfrozen.
     def deep_freeze(value)
       case value
       when Hash then value.to_h { |key, item| [key, deep_freeze(item)] }.freeze

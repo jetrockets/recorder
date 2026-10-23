@@ -75,7 +75,9 @@ Recorder supports the following options:
  * `changes: Proc | Symbol` - extra entries to merge into a revision's `changes`. A Proc
    is evaluated on the record, a Symbol names a method on it; both receive the event
    (`:create`, `:update` or `:destroy`) and return a hash of `name => [old, new]`, or
-   `nil` for nothing. Anything else raises `ArgumentError` where `recorder` is called.
+   `nil` for nothing. Anything else raises `ArgumentError` where `recorder` is called;
+ * `if: Symbol | Proc`, `unless: Symbol | Proc` - a condition the record has to meet, or
+   must not meet, for a change to be recorded. See [Conditions](#conditions).
 
 The entries are merged after `only:` and `ignore:` have been applied, so those
 filters never drop them, and a key that matches an attribute replaces that
@@ -114,6 +116,38 @@ def recorder_options
   {ignore: %i[identifier], changes: :extra_changes}
 end
 ```
+
+#### Conditions
+
+`if:` and `unless:` decide per record whether a change is recorded, as they do
+on a Rails callback:
+
+```ruby
+class Post < ActiveRecord::Base
+  include ::Recorder::Observer
+
+  recorder ignore: %i[views_count], if: :published?, unless: ->(post) { post.imported? }
+end
+```
+
+A Symbol names a method on the record, public or private. A Proc that takes an
+argument is called with the record, and one that takes none is evaluated on it.
+A change is recorded when `if:` returns a truthy value and `unless:` a falsy
+one. Arrays and other values raise `ArgumentError` where `recorder` is called.
+
+The condition applies to create, update and destroy alike. It runs in the same
+callbacks as `changes:`, so the notes there on `saved_changes` apply. It runs
+only while recording is on, so it cannot turn recording back on for a change
+`recorder_disabled!` or `Recorder.enabled = false` skips.
+
+`recorder` alone sets the condition. A subclass inherits it, and `if:` or
+`unless:` returned by a `recorder_options` override have no effect, so an
+override that builds a new hash keeps it. To vary the condition by subclass,
+name a method and override that method.
+
+`Recorder::Tape.new(record).record_update` and its `record_create` and
+`record_destroy` siblings do not check the condition: calling one is the
+decision to record. They still write nothing while recording is off.
 
 #### Subclasses
 

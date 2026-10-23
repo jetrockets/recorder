@@ -269,6 +269,147 @@ RSpec.describe Recorder::Observer do
     end
   end
 
+  describe 'if: and unless:' do
+    def create_update_destroy(model)
+      model.create!(name: 'Facebook', identifier: 'FB').tap do |record|
+        record.update!(name: 'Meta')
+        record.destroy!
+      end
+    end
+
+    def events(record)
+      Recorder::Revision.where(item_id: record.id).order(:created_at, :id).pluck(:event)
+    end
+
+    it 'records every event when an if: method returns true' do
+      model = securities_model('Listed')
+      model.class_eval do
+        recorder if: :listed?
+
+        private
+
+        def listed? = identifier.present?
+      end
+
+      expect(events(create_update_destroy(model))).to eq(%w[create update destroy])
+    end
+
+    it 'records no event when an if: method returns false' do
+      model = securities_model('Unlisted')
+      model.class_eval do
+        recorder if: :listed?
+
+        def listed? = false
+      end
+
+      expect(events(create_update_destroy(model))).to be_empty
+    end
+
+    it 'decides per record and per event' do
+      model = securities_model('Renamed') { recorder if: -> { name != 'Meta' } }
+      record = create_update_destroy(model)
+
+      expect(events(record)).to eq(%w[create])
+    end
+
+    it 'passes the record to a Proc that takes an argument' do
+      received = []
+      model = securities_model('Argued') { recorder if: ->(record) { received << record } }
+      record = model.create!(name: 'Facebook', identifier: 'FB')
+
+      aggregate_failures do
+        expect(received).to eq([record])
+        expect(events(record)).to eq(%w[create])
+      end
+    end
+
+    it 'records no event when unless: returns true' do
+      model = securities_model('Imported') { recorder unless: ->(record) { record.identifier == 'FB' } }
+
+      aggregate_failures do
+        expect(events(create_update_destroy(model))).to be_empty
+        expect { model.create!(name: 'Alphabet', identifier: 'GOOG') }.to change(Recorder::Revision, :count).by(1)
+      end
+    end
+
+    it 'records only when if: holds and unless: does not' do
+      model = securities_model('Both') { recorder if: -> { name.start_with?('F') }, unless: -> { identifier == 'X' } }
+      pairs = [%w[Facebook FB], %w[Facebook X], %w[Alphabet GOOG]]
+      records = pairs.map { |name, identifier| model.create!(name: name, identifier: identifier) }
+
+      expect(records.map { |record| events(record) }).to eq([%w[create], [], []])
+    end
+
+    it 'is not evaluated while recording is off' do
+      evaluated = false
+      model = securities_model('Disabled') { recorder if: -> { evaluated = true } }
+
+      Class.new { include Recorder::Manager }.new.recorder_disabled! do
+        expect { create_update_destroy(model) }.not_to change(Recorder::Revision, :count)
+      end
+      expect(evaluated).to be(false)
+    end
+
+    it 'reaches an STI subclass, which can override the method it names' do
+      parent = securities_model('Watched')
+      parent.class_eval do
+        recorder if: :watched?
+
+        def watched? = true
+      end
+      inheriting = stub_const('WatchedStock', Class.new(parent))
+      overriding = stub_const('UnwatchedStock', Class.new(parent) { def watched? = false })
+
+      aggregate_failures do
+        expect(events(create_update_destroy(inheriting))).to eq(%w[create update destroy])
+        expect(events(create_update_destroy(overriding))).to be_empty
+      end
+    end
+
+    it 'cannot be dropped by a recorder_options override' do
+      model = securities_model('Overridden')
+      model.class_eval do
+        recorder ignore: %i[identifier], if: -> { false }
+
+        def recorder_options
+          {ignore: %i[identifier updated_at]}
+        end
+      end
+
+      expect(events(create_update_destroy(model))).to be_empty
+    end
+
+    it 'does not stop a revision written through Recorder::Tape' do
+      model = securities_model('Manual') { recorder if: -> { false } }
+      record = model.create!(name: 'Facebook', identifier: 'FB')
+
+      expect { Recorder::Tape.new(record).record_destroy }.to change(Recorder::Revision, :count).by(1)
+    end
+
+    it 'keeps the condition in the frozen options' do
+      condition = ->(record) { record.identifier.present? }
+      model = securities_model('Kept') { recorder if: condition, unless: :delisted? }
+
+      aggregate_failures do
+        expect(model.recorder_options).to be_frozen
+        expect(model.recorder_options[:if]).to equal(condition)
+        expect(model.recorder_options[:unless]).to eq(:delisted?)
+        expect(condition).not_to be_frozen
+      end
+    end
+
+    it 'raises for a condition that is neither a Symbol nor a Proc' do
+      model = securities_model('BadCondition')
+
+      aggregate_failures do
+        expect { model.recorder if: 'listed?' }.to raise_error(ArgumentError, /`if:` expects .* got "listed\?"/)
+        expect { model.recorder unless: %i[a b] }.to raise_error(ArgumentError, /`unless:` expects/)
+        expect { model.recorder if: true }.to raise_error(ArgumentError, /`if:` expects/)
+        expect { model.recorder if: nil }.to raise_error(ArgumentError, /`if:` expects/)
+      end
+    end
+  end
+
   describe 'recording' do
     def create_update_destroy
       Security.create!(name: 'Facebook', identifier: 'FB').tap do |record|
