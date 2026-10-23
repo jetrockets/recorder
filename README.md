@@ -71,7 +71,7 @@ Recorder supports the following options:
 
  * `ignore: [array]` - attributes that are ignored on logging. Replaces `Recorder.config.ignore` for this model rather than adding to it;
  * `only: [array]` - only these attributes are logged, other attributes are ignored. `Recorder.config.ignore` does not apply, so a listed attribute is logged even if the global list ignores it. Takes precedence over `ignore:`;
- * `associations: {hash} (hash)` - allows to set what associations will be logged alongside with the model, as a snapshot on `create` and `destroy`. For each association you can also set ignore and only options, which follow the same rules; an association given neither falls back to `Recorder.config.ignore`;
+ * `associations: {hash} (hash)` - allows to set what associations will be logged alongside with the model, as a snapshot on `create` and `destroy`. For each association you can also set ignore and only options, which follow the same rules; an association given neither falls back to `Recorder.config.ignore`. Only singular associations, `belongs_to` and `has_one`, are recorded: a collection (`has_many`, `has_and_belongs_to_many`), or a name that is not an association, is skipped and logged as a warning through the model's logger, once per model and process. On a subclass, a name that only a sibling class declares is skipped without a warning;
  * `changes: Proc | Symbol` - extra entries to merge into a revision's `changes`. A Proc
    is evaluated on the record, a Symbol names a method on it; both receive the event
    (`:create`, `:update` or `:destroy`) and return a hash of `name => [old, new]`, or
@@ -326,8 +326,6 @@ The gem is under active maintenance and these defects are known:
   `RequestStore` keeps its state in fiber-local storage. Code that runs in
   another fiber inside the block, such as an `Enumerator#next` body or a task
   under a fiber scheduler, is recorded.
-- Collection associations are never recorded. `associations:` handles only
-  singular associations; a `has_many` reflection is skipped without a warning.
 
 ## Development
 

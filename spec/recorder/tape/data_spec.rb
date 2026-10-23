@@ -380,5 +380,109 @@ RSpec.describe Recorder::Tape::Data do
         expect(associations_for).to eq({})
       end
     end
+
+    context 'when they are given as an array of names' do
+      let(:options) { {associations: %i[guard]} }
+
+      before { item.guard = Security.create!(name: 'guard', identifier: 'guard') }
+
+      it 'records the snapshot' do
+        expect(associations_for).to match(associations: {guard: {attributes: hash_including(name: 'guard')}})
+      end
+    end
+
+    context 'when they name something that cannot be recorded' do
+      let(:log) { StringIO.new }
+
+      before do
+        Recorder::Tape::Data::WARNED.clear
+        allow(item.class).to receive(:logger).and_return(Logger.new(log))
+      end
+
+      %i[create destroy].each do |event|
+        context "when it is a collection, on #{event}" do
+          let(:associations_for) { data.associations_for(event, options) }
+          let(:item) { Portfolio.new(name: 'Growth', identifier: 'GR') }
+          let(:options) { {associations: {holdings: {only: %i[name]}}} }
+
+          it 'skips it and logs a warning' do
+            aggregate_failures do
+              expect(associations_for).to eq({})
+              expect(log.string).to include(
+                'Recorder: `associations:` names the collection :holdings of Portfolio; ' \
+                'only singular associations are recorded'
+              )
+            end
+          end
+        end
+
+        context "when it is not an association, on #{event}" do
+          let(:associations_for) { data.associations_for(event, options) }
+          let(:options) { {associations: {gaurd: {only: %i[name]}}} }
+
+          it 'skips it and logs a warning' do
+            aggregate_failures do
+              expect(associations_for).to eq({})
+              expect(log.string).to include(
+                'Recorder: `associations:` names :gaurd, which is not an association of Security'
+              )
+            end
+          end
+        end
+      end
+
+      context 'when only an STI sibling declares it' do
+        let(:item) { Bond.new(name: 'Bond', identifier: 'BD') }
+        let(:options) { {associations: {underlying: {}}} }
+
+        # Loads the sibling, as eager loading does.
+        before { Convertible }
+
+        it 'skips it without a warning' do
+          aggregate_failures do
+            expect(associations_for).to eq({})
+            expect(log.string).to be_empty
+          end
+        end
+      end
+
+      context 'when only a sibling under an abstract parent declares it' do
+        let(:item) { Fund.new(name: 'Fund', identifier: 'FD') }
+        let(:options) { {associations: {issuer: {}}} }
+
+        # Loads the sibling, as eager loading does.
+        before { Stock }
+
+        it 'skips it without a warning' do
+          aggregate_failures do
+            expect(associations_for).to eq({})
+            expect(log.string).to be_empty
+          end
+        end
+      end
+
+      context 'when it is met again' do
+        let(:options) { {associations: {gaurd: {only: %i[name]}}} }
+
+        it 'logs the warning once' do
+          data.associations_for(:create, options)
+          described_class.new(Security.new).associations_for(:destroy, options)
+
+          expect(log.string.scan('names :gaurd').size).to eq(1)
+        end
+      end
+
+      context 'on update' do
+        let(:associations_for) { data.associations_for(:update, options) }
+        let(:options) { {associations: {gaurd: {only: %i[name]}}} }
+
+        it 'logs nothing' do
+          aggregate_failures do
+            expect(associations_for).to eq({})
+            expect(log.string).to be_empty
+          end
+        end
+      end
+    end
   end
 end
