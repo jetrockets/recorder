@@ -7,8 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0]
+
 ### Added
 
+- A README section on upgrading to 2.0.0, ordered by what to change before,
+  with and after the upgrade.
 - README coverage of pointing `Revision#user` at a user model not named
   `User`, by declaring the association again with `class_name:`. No behaviour
   changes.
@@ -316,7 +320,8 @@ Releases at and before 1.1.1 predate this changelog. See the
 [commit history](https://github.com/jetrockets/recorder/commits/master) for
 details.
 
-[Unreleased]: https://github.com/jetrockets/recorder/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/jetrockets/recorder/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/jetrockets/recorder/compare/v1.4.0...v2.0.0
 [1.4.0]: https://github.com/jetrockets/recorder/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/jetrockets/recorder/compare/v1.2.3...v1.3.0
 [1.2.3]: https://github.com/jetrockets/recorder/compare/v1.2.2...v1.2.3
