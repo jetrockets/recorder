@@ -6,6 +6,7 @@ require 'recorder/version'
 require 'recorder/changeset'
 require 'recorder/store'
 require 'recorder/manager'
+require 'recorder/options'
 require 'recorder/observer'
 
 require 'recorder/rails/controller_concern'
