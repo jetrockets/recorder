@@ -278,7 +278,8 @@ RSpec.describe Recorder::Observer do
     end
 
     def events(record)
-      Recorder::Revision.where(item_id: record.id).order(:created_at, :id).pluck(:event)
+      Recorder::Revision.where(item_type: record.class.polymorphic_name, item_id: record.id)
+        .order(:created_at, :id).pluck(:event)
     end
 
     it 'records every event when an if: method returns true' do
@@ -341,13 +342,20 @@ RSpec.describe Recorder::Observer do
     end
 
     it 'is not evaluated while recording is off' do
-      evaluated = false
-      model = securities_model('Disabled') { recorder if: -> { evaluated = true } }
+      evaluated = []
+      model = securities_model('Disabled')
+      model.recorder if: -> { evaluated << :if }, unless: -> { evaluated << :unless && false }
 
       Class.new { include Recorder::Manager }.new.recorder_disabled! do
         expect { create_update_destroy(model) }.not_to change(Recorder::Revision, :count)
       end
-      expect(evaluated).to be(false)
+      expect(evaluated).to be_empty
+    end
+
+    it 'records every event for a nil condition' do
+      model = securities_model('Unconditional') { recorder if: nil, unless: nil }
+
+      expect(events(create_update_destroy(model))).to eq(%w[create update destroy])
     end
 
     it 'reaches an STI subclass, which can override the method it names' do
@@ -405,7 +413,6 @@ RSpec.describe Recorder::Observer do
         expect { model.recorder if: 'listed?' }.to raise_error(ArgumentError, /`if:` expects .* got "listed\?"/)
         expect { model.recorder unless: %i[a b] }.to raise_error(ArgumentError, /`unless:` expects/)
         expect { model.recorder if: true }.to raise_error(ArgumentError, /`if:` expects/)
-        expect { model.recorder if: nil }.to raise_error(ArgumentError, /`if:` expects/)
       end
     end
   end

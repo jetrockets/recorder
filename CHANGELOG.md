@@ -11,8 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `if:` and `unless:` options on `recorder`, which decide per record whether a
   create, update or destroy is recorded, as they do on a Rails callback. Each
-  takes a method name as a Symbol or a Proc, and any other value raises
-  `ArgumentError`. A subclass inherits them, and a `recorder_options` override
+  takes a method name as a Symbol or a Proc, or `nil` for none, and any other
+  value raises `ArgumentError`. A subclass inherits them, and a `recorder_options` override
   does not change them. They are checked only while recording is on, and
   `Recorder::Tape` called directly does not check them.
 - README coverage of pointing `Revision#user` at a user model not named

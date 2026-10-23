@@ -13,7 +13,8 @@ module Recorder
     end
 
     # A copy of the options passed to `.recorder`, which the caller may change.
-    # A model may define this itself to decide them per record.
+    # A model may define this itself to decide them per record, all but `if:`
+    # and `unless:`, which the callbacks hold.
     def recorder_options
       self.class.recorder_options.deep_dup
     end
@@ -42,7 +43,8 @@ module Recorder
         if declared_in
           raise ArgumentError, "`recorder` is already declared in #{declared_in.name || declared_in.inspect}. " \
             'Declare it once per class hierarchy, in the topmost class that records, and define a ' \
-            '`recorder_options` instance method where a subclass needs other options.'
+            '`recorder_options` instance method where a subclass needs other options. `if:` and `unless:` ' \
+            'stay as declared.'
         end
 
         options = Recorder::Options.normalize(options)

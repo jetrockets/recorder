@@ -35,7 +35,7 @@ module Recorder
     end
 
     def validate_condition(key, condition)
-      return if condition.is_a?(Symbol) || condition.is_a?(Proc)
+      return if condition.nil? || condition.is_a?(Symbol) || condition.is_a?(Proc)
 
       raise ArgumentError, "`#{key}:` expects a method name as a Symbol or a Proc, got #{condition.inspect}"
     end

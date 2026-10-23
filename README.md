@@ -72,12 +72,12 @@ Recorder supports the following options:
  * `ignore: [array]` - attributes that are ignored on logging. Replaces `Recorder.config.ignore` for this model rather than adding to it;
  * `only: [array]` - only these attributes are logged, other attributes are ignored. `Recorder.config.ignore` does not apply, so a listed attribute is logged even if the global list ignores it. Takes precedence over `ignore:`;
  * `associations: {hash} (hash)` - allows to set what associations will be logged alongside with the model, as a snapshot on `create` and `destroy`. For each association you can also set ignore and only options, which follow the same rules; an association given neither falls back to `Recorder.config.ignore`. Only singular associations, `belongs_to` and `has_one`, are recorded: a collection (`has_many`, `has_and_belongs_to_many`), or a name that is not an association, is skipped and logged as a warning through the model's logger, once per model and process. On a subclass, a name that only a sibling class declares is skipped without a warning;
+ * `if: Symbol | Proc`, `unless: Symbol | Proc` - a condition the record has to meet, or
+   must not meet, for a change to be recorded. See [Conditions](#conditions);
  * `changes: Proc | Symbol` - extra entries to merge into a revision's `changes`. A Proc
    is evaluated on the record, a Symbol names a method on it; both receive the event
    (`:create`, `:update` or `:destroy`) and return a hash of `name => [old, new]`, or
-   `nil` for nothing. Anything else raises `ArgumentError` where `recorder` is called;
- * `if: Symbol | Proc`, `unless: Symbol | Proc` - a condition the record has to meet, or
-   must not meet, for a change to be recorded. See [Conditions](#conditions).
+   `nil` for nothing. Anything else raises `ArgumentError` where `recorder` is called.
 
 The entries are merged after `only:` and `ignore:` have been applied, so those
 filters never drop them, and a key that matches an attribute replaces that
@@ -109,7 +109,9 @@ association names included, frozen.
 A model that needs to decide its options per record can define
 `recorder_options` as an instance method. It replaces what was passed to
 `recorder` rather than merging with it, so it has to return every option the
-model needs, with symbol keys; its result is used as it is, unchecked:
+model needs, with symbol keys; its result is used as it is, unchecked. `if:`
+and `unless:` are the exception: they belong to the callbacks, and an override
+cannot change them (see [Conditions](#conditions)):
 
 ```ruby
 def recorder_options
@@ -133,7 +135,8 @@ end
 A Symbol names a method on the record, public or private. A Proc that takes an
 argument is called with the record, and one that takes none is evaluated on it.
 A change is recorded when `if:` returns a truthy value and `unless:` a falsy
-one. Arrays and other values raise `ArgumentError` where `recorder` is called.
+one. `nil` means no condition, as on a Rails callback. Arrays and other values
+raise `ArgumentError` where `recorder` is called.
 
 The condition applies to create, update and destroy alike. It runs in the same
 callbacks as `changes:`, so the notes there on `saved_changes` apply. It runs
@@ -168,7 +171,8 @@ end
 ```
 
 `super` returns a copy of the parent's options, which the override can change
-in place or build on. The result is applied as if it had been declared. A
+in place or build on. The result is applied as if it had been declared, except
+for `if:` and `unless:`, which an override cannot change. A
 `recorder_options` class method that calls `super` gets the frozen options every
 subclass shares, so it builds a new hash, such as `super.merge(...)`; one that
 changes them in place raises `FrozenError` from the first save that reads it,
