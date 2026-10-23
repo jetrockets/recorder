@@ -268,4 +268,21 @@ RSpec.describe Recorder::Observer do
       end
     end
   end
+
+  describe 'recording' do
+    def create_update_destroy
+      Security.create!(name: 'Facebook', identifier: 'FB').tap do |record|
+        record.update!(name: 'Meta')
+        record.destroy!
+      end
+    end
+
+    it 'leaves the record with the instance variables an unrecorded one has' do
+      recorded = create_update_destroy
+      Recorder.store.recorder_disabled!
+      unrecorded = create_update_destroy
+
+      expect(recorded.instance_variables).to match_array(unrecorded.instance_variables)
+    end
+  end
 end
