@@ -4,6 +4,8 @@ require 'recorder/tape/data'
 require 'recorder/tape/record'
 
 module Recorder
+  # Writes a record's revisions. Called directly, it skips the model's `if:`
+  # and `unless:`, and still honours `Recorder.recording?`.
   class Tape
     extend Record
 
