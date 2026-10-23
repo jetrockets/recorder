@@ -25,7 +25,7 @@ module Recorder
       end
 
       def attributes_for(_event, options)
-        {attributes: sanitize_attributes(item.attributes, options)}
+        {attributes: sanitize_attributes(persisted_attributes, options)}
       end
 
       def self.validate_changes_option!(callback)
@@ -49,6 +49,16 @@ module Recorder
       end
 
       private
+
+      # The row as it is in the database. An attribute assigned since the record
+      # was read or last saved keeps its database value, so a `destroy`, which
+      # saves nothing, does not record values the row never had. A record that
+      # was never saved has no row, and only its in-memory values.
+      def persisted_attributes
+        return item.attributes if item.new_record?
+
+        item.attributes.merge(item.attributes_in_database)
+      end
 
       # `destroy` leaves `saved_changes` holding the record's last save.
       def attribute_changes_for(event, options)
@@ -95,7 +105,9 @@ module Recorder
       end
 
       # Logs a warning for a collection, and for a name that no class in the
-      # item's hierarchy declares, and skips both.
+      # item's hierarchy declares, and skips both. An associated record that was
+      # never saved has no row to record and is skipped too; the item's own
+      # snapshot still holds the foreign key as it is in the database.
       def parse_association(association, options)
         reflection = item.class.reflect_on_association(association)
 
@@ -106,7 +118,7 @@ module Recorder
         elsif reflection.collection?
           warn_unrecordable("names the collection #{association.inspect} of #{item.class}; " \
             'only singular associations are recorded')
-        elsif (object = item.send(association))
+        elsif (object = item.send(association)) && !object.new_record?
           [reflection.name, Recorder::Tape::Data.new(object).attributes_for(nil, options || {})]
         end
       end

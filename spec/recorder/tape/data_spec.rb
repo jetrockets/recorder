@@ -199,6 +199,29 @@ RSpec.describe Recorder::Tape::Data do
         end
       end
     end
+
+    context 'when the item is saved' do
+      let(:attributes_for) { data.attributes_for(:destroy, options) }
+      let(:item) { Security.create!(type: 'type', name: 'name', identifier: 'identifier').reload }
+
+      context 'and has an assignment that was not saved' do
+        let(:options) { {only: %i[type name]} }
+
+        before { item.name = 'unsaved' }
+
+        it 'records the value in the database' do
+          expect(attributes_for).to eq(attributes: {type: 'type', name: 'name'})
+        end
+      end
+
+      context 'and nothing was assigned since' do
+        let(:options) { {} }
+
+        it 'records its attributes' do
+          expect(attributes_for).to eq(attributes: item.attributes.symbolize_keys)
+        end
+      end
+    end
   end
 
   describe '#changes_for' do
@@ -388,6 +411,29 @@ RSpec.describe Recorder::Tape::Data do
 
       it 'records the snapshot' do
         expect(associations_for).to match(associations: {guard: {attributes: hash_including(name: 'guard')}})
+      end
+    end
+
+    context 'when the associated record has an assignment that was not saved' do
+      let(:options) { {associations: {guard: {only: %i[name]}}} }
+
+      before do
+        item.guard = Security.create!(name: 'guard', identifier: 'guard')
+        item.guard.name = 'unsaved'
+      end
+
+      it 'records the value in the database' do
+        expect(associations_for).to eq(associations: {guard: {attributes: {name: 'guard'}}})
+      end
+    end
+
+    context 'when the associated record was never saved' do
+      let(:options) { {associations: {guard: {only: %i[name]}}} }
+
+      before { item.guard = Security.new(name: 'guard', identifier: 'guard') }
+
+      it 'leaves it out' do
+        expect(associations_for).to eq({})
       end
     end
 

@@ -121,5 +121,30 @@ RSpec.describe Instrument do
 
       expect(last_revision(owned).data['associations']).to eq('guard' => {'attributes' => {'name' => 'Facebook'}})
     end
+
+    it 'records the association as it is in the database on create, not an assignment that was never saved' do
+      instrument.name = 'Meta'
+      owned
+
+      expect(last_revision(owned).data['associations']).to eq('guard' => {'attributes' => {'name' => 'Facebook'}})
+    end
+
+    it 'records the association as it is in the database on destroy, not an assignment that was never saved' do
+      owned.reload.guard.name = 'Meta'
+      owned.destroy!
+
+      expect(last_revision(owned).data['associations']).to eq('guard' => {'attributes' => {'name' => 'Facebook'}})
+    end
+
+    it 'leaves out an associated record that was never saved on destroy' do
+      owned.reload.guard = described_class.new(name: 'Threads', identifier: 'TH')
+      owned.destroy!
+
+      data = last_revision(owned).data
+      aggregate_failures do
+        expect(data).not_to have_key('associations')
+        expect(data['attributes']).to include('guard_id' => instrument.id)
+      end
+    end
   end
 end

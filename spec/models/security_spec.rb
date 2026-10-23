@@ -61,6 +61,14 @@ RSpec.describe Security do
         expect(data['attributes']).to include('name' => 'Meta', 'identifier' => 'FB')
       end
     end
+
+    it 'records the attributes as they are in the database, not an assignment that was never saved' do
+      security.reload
+      security.name = 'Meta'
+      security.destroy!
+
+      expect(Recorder::Revision.order(:id).last.data['attributes']).to include('name' => 'Facebook')
+    end
   end
 
   describe 'when recording is disabled' do
