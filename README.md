@@ -168,6 +168,10 @@ halts, raises `Recorder::RevisionNotSaved`, a subclass of
 `ActiveRecord::RecordNotSaved` whose `record` is the revision. A database error
 raises as it would from any other write.
 
+Nothing but the error rolls the save back. A transaction of your own that
+rescues it, or rescues `ActiveRecord::RecordNotSaved`, commits the record
+without its revision. Let the error propagate, or re-raise it.
+
 ### Recording the current user
 
 To enable storing of such data as user_id and ip, you need to include `Recorder::Rails::ControllerConcern` to `ApplicationController`. Recorder uses [request_store](https://github.com/steveklabnik/request_store) to safely store these data on a thread level.

@@ -6,11 +6,17 @@ module Recorder
       def record(params)
         return unless Recorder.recording?
 
-        Recorder::Revision.create!(params_for(params))
+        revision = Recorder::Revision.new(params_for(params))
+        revision.save!
+      # The failure of a revision written from a callback on this one comes
+      # through as it is.
+      rescue Recorder::RevisionNotSaved
+        raise
       # Re-raised as an error Active Record's save does not rescue, so the save
-      # fails, whichever method it was made with.
+      # fails, whichever method it was made with. The error names this revision
+      # even when a callback on it raised about another record.
       rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotSaved => e
-        raise Recorder::RevisionNotSaved.new("Recorder could not write the revision: #{e.message}", e.record)
+        raise Recorder::RevisionNotSaved.new("Recorder could not write the revision: #{e.message}", revision)
       end
 
       private

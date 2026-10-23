@@ -136,8 +136,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   It raises from the save of the observed record, `save` and `update` included,
   so the save rolls back, along with any transaction around it that does not
   rescue the error. Such a revision used to be dropped and the save went
-  through without it. An app that adds validations or callbacks to
-  `Recorder::Revision` sees them fail the save.
+  through without it. A transaction of your own that rescues the error
+  commits the record without its revision. An app that adds validations or
+  callbacks to `Recorder::Revision` sees them fail the save.
 
 ## [1.4.0]
 
