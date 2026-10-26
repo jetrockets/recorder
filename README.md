@@ -443,8 +443,10 @@ class loads, so booting with `config.eager_load = true` finds every one:
 - A `recorder_options` class method that changes `super` in place raises
   `FrozenError` from the first save; build a new hash, such as
   `super.merge(...)`.
-- Replace `recorder_dirty?`, `recorder_record?` and `@recorder_dirty = false`
-  with `recorder_disabled!`, and drop calls to
+- Replace `recorder_dirty?`, `recorder_record?` and `@recorder_dirty = false`:
+  declare a rule about the model's records with `recorder if:` or `unless:`
+  (see [Conditions](#conditions)), and skip one call's changes with
+  `recorder_disabled! { record.save }`. Drop calls to
   `Recorder.active_record_protected_attributes?`.
 
 These record differently without raising, so check each against what the app
