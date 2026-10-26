@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `if:` and `unless:` options on `recorder`, which decide per record whether a
+  create, update or destroy is recorded, as they do on a Rails callback. Each
+  takes a method name as a Symbol, a Proc that takes the record or nothing,
+  or `nil` for none, and any other value raises `ArgumentError`. A subclass inherits them, and a `recorder_options` override
+  does not change them. They are checked only while recording is on, and
+  `Recorder::Tape` called directly does not check them.
 - README coverage of pointing `Revision#user` at a user model not named
   `User`, by declaring the association again with `class_name:`. No behaviour
   changes.
@@ -69,8 +75,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking.** The undocumented `recorder_dirty?` and `recorder_record?`
   instance methods of observed models. A model that overrode one, or set
   `@recorder_dirty = false` on a record, to skip recording is recorded, and
-  code that calls one raises `NoMethodError`. Use `recorder_disabled!` to skip
-  a change.
+  code that calls one raises `NoMethodError`. Declare a rule about the model's
+  records with `recorder if:` or `unless:`, and skip one call's changes with
+  `recorder_disabled! { record.save }`.
 
 ### Fixed
 
