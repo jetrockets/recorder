@@ -8,12 +8,16 @@ module Recorder
   module Observer
     extend ::ActiveSupport::Concern
 
+    # The condition every `recorder` callback checks before the model's own.
+    RECORDING = -> { Recorder.recording? }
+
     included do
       has_many :revisions, class_name: '::Recorder::Revision', inverse_of: :item, as: :item
     end
 
     # A copy of the options passed to `.recorder`, which the caller may change.
-    # A model may define this itself to decide them per record.
+    # A model may define this itself to decide them per record, all but `if:`
+    # and `unless:`, which the callbacks hold.
     def recorder_options
       self.class.recorder_options.deep_dup
     end
@@ -35,27 +39,32 @@ module Recorder
       end
 
       # Registers the callbacks, which subclasses inherit, so it is called once
-      # per class hierarchy.
+      # per class hierarchy. The callbacks hold `if:` and `unless:`, so the
+      # `recorder_options` overrides cannot change them.
       def recorder(options = {})
         declared_in = [*ancestors, *descendants].find { |klass| klass.instance_variable_defined?(:@recorder_options) }
         if declared_in
           raise ArgumentError, "`recorder` is already declared in #{declared_in.name || declared_in.inspect}. " \
             'Declare it once per class hierarchy, in the topmost class that records, and define a ' \
-            '`recorder_options` instance method where a subclass needs other options.'
+            '`recorder_options` instance method where a subclass needs other options. `if:` and `unless:` ' \
+            'stay as declared.'
         end
 
         options = Recorder::Options.normalize(options)
+        # Rails checks the conditions in order, so the model's own runs only
+        # while recording is on.
+        conditions = {if: [RECORDING, options[:if]].compact, unless: options[:unless]}
 
-        after_create do
-          Recorder::Tape.new(self).record_create if Recorder.recording?
+        after_create(**conditions) do
+          Recorder::Tape.new(self).record_create
         end
 
-        after_update do
-          Recorder::Tape.new(self).record_update if Recorder.recording?
+        after_update(**conditions) do
+          Recorder::Tape.new(self).record_update
         end
 
-        after_destroy do
-          Recorder::Tape.new(self).record_destroy if Recorder.recording?
+        after_destroy(**conditions) do
+          Recorder::Tape.new(self).record_destroy
         end
 
         @recorder_options = options
