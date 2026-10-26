@@ -132,19 +132,43 @@ class Post < ActiveRecord::Base
 end
 ```
 
-A Symbol names a method on the record, public or private. A Proc takes one
-argument, the record, or none, in which case it is evaluated on the record. A
-Proc with any other parameters, optional or splat ones included, raises
-`ArgumentError` where `recorder` is called, since Rails would not pass it the
-record.
+A Symbol names a method on the record, public or private; a misspelt one
+raises `NoMethodError` from the first save, which rolls it back. A Proc takes
+one argument, the record, or none, in which case it is evaluated on the record.
 A change is recorded when `if:` returns a truthy value and `unless:` a falsy
-one. `nil` means no condition, as on a Rails callback. Arrays and other values
-raise `ArgumentError` where `recorder` is called.
+one, and `nil` means no condition, as on a Rails callback.
 
-The condition applies to create, update and destroy alike. It runs in the same
-callbacks as `changes:`, so the notes there on `saved_changes` apply. It runs
-only while recording is on, so it cannot turn recording back on for a change
+`recorder` raises `ArgumentError` for any other value: a Proc with other
+parameters, optional or splat ones included, since Rails would not pass it the
+record, an Array, or an object that responds to `call`. For such an object,
+pass `Policy.method(:call).to_proc`.
+
+The condition applies to create, update and destroy alike. It runs only while
+recording is on, so it cannot turn recording back on for a change
 `recorder_disabled!` or `Recorder.enabled = false` skips.
+
+It runs after the change, in the same `after_create`, `after_update` and
+`after_destroy` callbacks as `changes:`, so the notes there on `saved_changes`
+apply. It sees the record as saved, so a change that makes it false is not
+recorded: with `if: :published?`, unpublishing a post writes no revision, and
+its history ends on the last published state. To record the change that
+leaves the condition, test the value before the save too:
+
+```ruby
+recorder if: -> { published? || status_previously_was == 'published' }
+```
+
+On destroy, `status_previously_was` reads the record's last save, and the
+associated records `dependent: :destroy` removes are already gone.
+
+To vary the condition by event, `destroyed?` is true on destroy, and otherwise
+`previously_new_record?` tells a create from an update. `previously_new_record?`
+stays true when the record that was created is then destroyed, so check
+`destroyed?` first. This records a create only for a featured post:
+
+```ruby
+recorder if: -> { destroyed? || !previously_new_record? || featured? }
+```
 
 `recorder` alone sets the condition. A subclass inherits it, and `if:` or
 `unless:` returned by a `recorder_options` override have no effect, so an

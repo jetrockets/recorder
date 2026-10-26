@@ -313,6 +313,27 @@ RSpec.describe Recorder::Observer do
       expect(events(record)).to eq(%w[create])
     end
 
+    it 'records the change that leaves the condition when it reads the previous value' do
+      model = securities_model('Leaving') { recorder if: -> { name == 'Facebook' || name_previously_was == 'Facebook' } }
+      record = model.create!(name: 'Facebook', identifier: 'FB')
+      record.update!(name: 'Meta')
+      record.update!(name: 'Instagram')
+      record.destroy!
+
+      expect(events(record)).to eq(%w[create update])
+    end
+
+    it 'tells the events apart with destroyed? and previously_new_record?' do
+      model = securities_model('Featured')
+      model.recorder if: -> { destroyed? || !previously_new_record? || identifier == 'FB' }
+      plain = model.create!(name: 'Alphabet', identifier: 'GOOG').tap { |record| record.update!(name: 'Google') }
+      featured = model.create!(name: 'Facebook', identifier: 'FB')
+      destroyed = model.create!(name: 'Amazon', identifier: 'AMZN').tap(&:destroy!)
+
+      expect([plain, featured, destroyed].map { |record| events(record) })
+        .to eq([%w[update], %w[create], %w[destroy]])
+    end
+
     it 'passes the record to a Proc that takes an argument' do
       received = []
       model = securities_model('Argued') { recorder if: ->(record) { received << record } }
