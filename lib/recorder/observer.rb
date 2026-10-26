@@ -8,6 +8,9 @@ module Recorder
   module Observer
     extend ::ActiveSupport::Concern
 
+    # The condition every `recorder` callback checks before the model's own.
+    RECORDING = -> { Recorder.recording? }
+
     included do
       has_many :revisions, class_name: '::Recorder::Revision', inverse_of: :item, as: :item
     end
@@ -50,7 +53,7 @@ module Recorder
         options = Recorder::Options.normalize(options)
         # Rails checks the conditions in order, so the model's own runs only
         # while recording is on.
-        conditions = {if: [-> { Recorder.recording? }, options[:if]].compact, unless: options[:unless]}
+        conditions = {if: [RECORDING, options[:if]].compact, unless: options[:unless]}
 
         after_create(**conditions) do
           Recorder::Tape.new(self).record_create

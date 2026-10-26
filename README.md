@@ -132,8 +132,11 @@ class Post < ActiveRecord::Base
 end
 ```
 
-A Symbol names a method on the record, public or private. A Proc that takes an
-argument is called with the record, and one that takes none is evaluated on it.
+A Symbol names a method on the record, public or private. A Proc takes one
+argument, the record, or none, in which case it is evaluated on the record. A
+Proc with any other parameters, optional or splat ones included, raises
+`ArgumentError` where `recorder` is called, since Rails would not pass it the
+record.
 A change is recorded when `if:` returns a truthy value and `unless:` a falsy
 one. `nil` means no condition, as on a Rails callback. Arrays and other values
 raise `ArgumentError` where `recorder` is called.

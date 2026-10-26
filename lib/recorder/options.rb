@@ -28,16 +28,19 @@ module Recorder
 
       assert_known_keys(options, KEYS, '`recorder`')
       Recorder::Tape::Data.validate_changes_option!(options[:changes])
-      %i[if unless].each { |key| validate_condition(key, options[key]) if options.key?(key) }
+      %i[if unless].each { |key| validate_condition(key, options[key]) }
       options[:associations] = normalize_associations(options[:associations]) if options.key?(:associations)
 
       deep_freeze(options)
     end
 
+    # Rails passes the record to a Proc of arity 1 and nothing to one of arity
+    # 0; any other Proc raises from the save.
     def validate_condition(key, condition)
-      return if condition.nil? || condition.is_a?(Symbol) || condition.is_a?(Proc)
+      return if condition.nil? || condition.is_a?(Symbol) || (condition.is_a?(Proc) && [0, 1].include?(condition.arity))
 
-      raise ArgumentError, "`#{key}:` expects a method name as a Symbol or a Proc, got #{condition.inspect}"
+      raise ArgumentError, "`#{key}:` expects a method name as a Symbol, or a Proc that takes the record or " \
+        "nothing, got #{condition.inspect}"
     end
 
     # Takes a Hash of association name => options, or an Array of names, and

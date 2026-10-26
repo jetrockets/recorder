@@ -333,6 +333,22 @@ RSpec.describe Recorder::Observer do
       end
     end
 
+    it 'records no event when an unless: method returns true' do
+      model = securities_model('Delisted')
+      model.class_eval do
+        recorder unless: :delisted?
+
+        private
+
+        def delisted? = identifier == 'FB'
+      end
+
+      aggregate_failures do
+        expect(events(create_update_destroy(model))).to be_empty
+        expect(events(model.create!(name: 'Alphabet', identifier: 'GOOG'))).to eq(%w[create])
+      end
+    end
+
     it 'records only when if: holds and unless: does not' do
       model = securities_model('Both') { recorder if: -> { name.start_with?('F') }, unless: -> { identifier == 'X' } }
       pairs = [%w[Facebook FB], %w[Facebook X], %w[Alphabet GOOG]]
@@ -414,6 +430,23 @@ RSpec.describe Recorder::Observer do
         expect { model.recorder unless: %i[a b] }.to raise_error(ArgumentError, /`unless:` expects/)
         expect { model.recorder if: true }.to raise_error(ArgumentError, /`if:` expects/)
       end
+    end
+
+    it 'raises for a Proc Rails would not pass the record to' do
+      model = securities_model('BadArity')
+
+      aggregate_failures do
+        [->(record, other) {}, ->(record, *) {}, ->(record = nil) {}, proc { |record, other| }].each do |condition|
+          expect { model.recorder if: condition }.to raise_error(ArgumentError, /`if:` expects .* Proc that takes/)
+        end
+        expect { model.recorder unless: ->(*) {} }.to raise_error(ArgumentError, /`unless:` expects/)
+      end
+    end
+
+    it 'accepts a block-style Proc that takes the record' do
+      model = securities_model('BlockProc') { recorder if: proc { |record| record.identifier == 'FB' } }
+
+      expect(events(create_update_destroy(model))).to eq(%w[create update destroy])
     end
   end
 
