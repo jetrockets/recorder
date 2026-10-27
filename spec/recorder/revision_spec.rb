@@ -138,6 +138,100 @@ module Recorder
       end
     end
 
+    describe '#item_changeset edge cases' do
+      let(:security) { Security.create!(name: 'Facebook', identifier: 'FB') }
+      let(:revision) do
+        security.update!(name: 'Meta')
+        described_class.order(:id).last
+      end
+
+      it 'builds the changeset once' do
+        expect(revision.item_changeset).to equal(revision.item_changeset)
+      end
+
+      it 'is nil when the item no longer exists' do
+        revision
+        security.destroy!
+
+        expect(described_class.find(revision.id).item_changeset).to be_nil
+      end
+
+      it 'is nil when the revision holds no changes' do
+        revision = described_class.create!(
+          item: security, event: 'create', action_date: Date.current, data: {attributes: {name: 'Facebook'}}
+        )
+
+        expect(revision.item_changeset).to be_nil
+      end
+    end
+
+    # The changeset class is `<model>Changeset` when defined, or what the model's
+    # `recorder_changeset_class` answers, or `Recorder::Changeset`.
+    describe 'changeset class' do
+      let(:security) { Security.create!(name: 'Facebook', identifier: 'FB') }
+      let(:revision) do
+        security.update!(name: 'Meta')
+        described_class.order(:id).last
+      end
+
+      it 'defaults to Recorder::Changeset' do
+        expect(revision.item_changeset).to be_an_instance_of(Recorder::Changeset)
+      end
+
+      it 'is the class named after the model when one is defined' do
+        changeset_class = stub_const('SecurityChangeset', Class.new(Recorder::Changeset))
+
+        expect(revision.item_changeset).to be_an_instance_of(changeset_class)
+      end
+
+      it 'is what the model answers from recorder_changeset_class' do
+        changeset_class = stub_const('LedgerChanges', Class.new(Recorder::Changeset))
+        model = stub_const('Ledger', Class.new(ApplicationRecord) do
+          include Recorder::Observer
+
+          self.table_name = 'securities'
+
+          recorder
+
+          def self.recorder_changeset_class
+            LedgerChanges
+          end
+        end)
+        ledger = model.create!(name: 'Facebook', identifier: 'FB')
+        ledger.update!(name: 'Meta')
+
+        expect(described_class.order(:id).last.item_changeset).to be_an_instance_of(changeset_class)
+      end
+
+      # A Draper decorator answers `decorated?` and holds the model as `source`.
+      context 'when the item is decorated' do
+        let(:decorator) do
+          Class.new do
+            attr_reader :source
+
+            def initialize(source)
+              @source = source
+            end
+
+            def decorated?
+              true
+            end
+          end
+        end
+
+        before do
+          stub_const('Draper', Module.new)
+          allow(revision).to receive(:item).and_return(decorator.new(security))
+        end
+
+        it 'resolves the class from the decorated model' do
+          changeset_class = stub_const('SecurityChangeset', Class.new(Recorder::Changeset))
+
+          expect(revision.item_changeset).to be_an_instance_of(changeset_class)
+        end
+      end
+    end
+
     # An association entry may or may not hold `changes`.
     describe 'association readers' do
       let(:guard) { Instrument.create!(name: 'Meta', identifier: 'META') }

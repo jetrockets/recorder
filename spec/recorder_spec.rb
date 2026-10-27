@@ -13,6 +13,18 @@ RSpec.describe Recorder do
     end
   end
 
+  describe '.config' do
+    it 'returns the configuration' do
+      expect(described_class.config).to equal(Recorder::Config.instance)
+    end
+
+    it 'yields the configuration to a block' do
+      described_class.config { |config| config.enabled = false }
+
+      expect(described_class.enabled?).to be(false)
+    end
+  end
+
   describe '.recording?' do
     it 'is true by default' do
       expect(described_class.recording?).to be(true)
@@ -40,6 +52,21 @@ RSpec.describe Recorder do
       described_class.store.recorder_disabled!
 
       expect(Thread.new { described_class.recording? }.value).to be(true)
+    end
+  end
+
+  describe '.meta=' do
+    it 'keeps the meta for the revisions that follow' do
+      described_class.meta = {locale: 'en'}
+
+      expect(described_class.store.params[:meta]).to eq(locale: 'en')
+    end
+
+    it 'is written on the revisions that follow' do
+      described_class.meta = {locale: 'en'}
+      security = Security.create!(name: 'Facebook', identifier: 'FB')
+
+      expect(security.revisions.last.meta).to eq('locale' => 'en')
     end
   end
 
