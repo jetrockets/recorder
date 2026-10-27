@@ -17,11 +17,10 @@ module Recorder
     end
 
     def record_create
-      data = data_for(:create, recorder_options)
-
-      record(event: 'create', data: data) if data.any?
+      record(event: 'create', data: data_for(:create, recorder_options))
     end
 
+    # An update that changed nothing has no data and writes no revision.
     def record_update
       data = data_for(:update, recorder_options)
 
@@ -29,9 +28,7 @@ module Recorder
     end
 
     def record_destroy
-      data = data_for(:destroy, recorder_options)
-
-      record(event: 'destroy', data: data) if data.any?
+      record(event: 'destroy', data: data_for(:destroy, recorder_options))
     end
 
     protected

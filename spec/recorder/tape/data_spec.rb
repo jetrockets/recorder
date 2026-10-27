@@ -511,6 +511,16 @@ RSpec.describe Recorder::Tape::Data do
         end
       end
 
+      context 'when the model has no logger' do
+        let(:options) { {associations: {gaurd: {only: %i[name]}}} }
+
+        before { allow(item.class).to receive(:logger).and_return(nil) }
+
+        it 'skips it without raising' do
+          expect(associations_for).to eq({})
+        end
+      end
+
       context 'when it is met again' do
         let(:options) { {associations: {gaurd: {only: %i[name]}}} }
 

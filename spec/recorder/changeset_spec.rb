@@ -57,6 +57,31 @@ module Recorder
           expect(changeset.human_attribute_name(:identifier)).to eq(Security.human_attribute_name(:identifier))
         end
       end
+
+      # A Draper decorator answers `decorated?` and holds the model as `source`.
+      describe 'decorated object' do
+        let(:decorator) do
+          Class.new do
+            attr_reader :source
+
+            def initialize(source)
+              @source = source
+            end
+
+            def decorated?
+              true
+            end
+          end
+        end
+        let(:item) { decorator.new(Security.new) }
+
+        before { stub_const('Draper', Module.new) }
+
+        it 'returns human attribute name for the decorated model' do
+          changeset = described_class.new(item, changes)
+          expect(changeset.human_attribute_name(:identifier)).to eq(Security.human_attribute_name(:identifier))
+        end
+      end
     end
 
     # `#previous` and `#next` rebuild the record by assigning values onto a `dup`.
@@ -86,6 +111,15 @@ module Recorder
         changeset = described_class.new(item, changes)
 
         expect(changeset.next(:name)).to eq('Meta')
+      end
+
+      it 'builds each version once' do
+        changeset = described_class.new(item, changes)
+
+        aggregate_failures do
+          expect(changeset.previous_version).to equal(changeset.previous_version)
+          expect(changeset.next_version).to equal(changeset.next_version)
+        end
       end
 
       it 'leaves the item itself untouched' do

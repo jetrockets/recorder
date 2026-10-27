@@ -83,6 +83,42 @@ RSpec.describe Recorder::Observer do
       expect { model.recorder ignores: %i[identifier] }.to raise_error(ArgumentError, /Unknown key: :ignores/)
     end
 
+    it 'raises for several options it does not know, naming them all' do
+      model = securities_model('MisspeltTwice')
+
+      expect { model.recorder ignores: %i[identifier], onlly: %i[name] }
+        .to raise_error(ArgumentError, /Unknown keys: :ignores, :onlly/)
+    end
+
+    it 'accepts associations: nil' do
+      model = securities_model('NoAssociations') { recorder associations: nil }
+
+      aggregate_failures do
+        expect(model.recorder_options).to eq(associations: nil)
+        expect { model.create!(name: 'Facebook', identifier: 'FB') }.to change(Recorder::Revision, :count).by(1)
+      end
+    end
+
+    it 'accepts a String for changes: and keeps a frozen copy' do
+      callback = +'ticker_change'
+      model = securities_model('StringCallback')
+      model.class_eval do
+        recorder changes: callback
+
+        def ticker_change(event)
+          {ticker: [nil, identifier]} if event == :create
+        end
+      end
+      record = model.create!(name: 'Facebook', identifier: 'FB')
+
+      aggregate_failures do
+        expect(model.recorder_options[:changes]).to eq('ticker_change')
+        expect(model.recorder_options[:changes]).to be_frozen
+        expect(callback).not_to be_frozen
+        expect(Recorder::Revision.where(item_id: record.id).last.data['changes']).to include('ticker' => [nil, 'FB'])
+      end
+    end
+
     it 'raises for an association option it does not know' do
       model = securities_model('MisspeltAssociation')
 
@@ -232,6 +268,16 @@ RSpec.describe Recorder::Observer do
 
       snapshot = Recorder::Revision.where(item_id: record.id).last.data['attributes']
       expect(snapshot.keys).not_to include('identifier', 'updated_at')
+    end
+  end
+
+  describe '.recorder_declared_in' do
+    it 'is the class that called .recorder' do
+      expect(Bond.recorder_declared_in).to eq(Instrument)
+    end
+
+    it 'is nil until .recorder is called in the hierarchy' do
+      expect(securities_model('Undeclared').recorder_declared_in).to be_nil
     end
   end
 
