@@ -16,7 +16,7 @@ concurrency:
 jobs:
   specs:
     name: Specs (Ruby ${{ matrix.ruby }}, Rails ${{ matrix.rails }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     strategy:
@@ -58,7 +58,7 @@ jobs:
       BUNDLE_GEMFILE: gemfiles/rails_${{ matrix.rails }}.gemfile
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: ruby/setup-ruby@v1
         with:
@@ -76,7 +76,7 @@ jobs:
                  "| #{result["line"]}% | #{result["branch"]}% |"
           ' >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: matrix.coverage
         with:
           name: coverage
@@ -85,11 +85,11 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: ruby/setup-ruby@v1
         with:
