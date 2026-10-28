@@ -31,6 +31,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency 'activerecord', '>= 6.1', '< 9'
   spec.add_dependency 'activesupport', '>= 6.1', '< 9'
+  spec.add_dependency 'concurrent-ruby', '>= 1.0'
   spec.add_dependency 'request_store', '>= 1.0'
 
   spec.add_development_dependency 'appraisal', '~> 2.5'

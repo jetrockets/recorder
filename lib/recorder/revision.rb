@@ -22,10 +22,8 @@ module Recorder
     # @return [Recorder::Changeset]
     def item_changeset
       return @item_changeset if defined?(@item_changeset)
-      return nil if item.nil?
-      return nil if data['changes'].nil?
 
-      @item_changeset ||= changeset_class(item).new(item, data['changes'])
+      @item_changeset = changeset_class(item).new(item, data['changes']) if item && data['changes']
     end
 
     # Get names of item associations that carry changes
@@ -61,25 +59,16 @@ module Recorder
       entry['changes'].presence if entry.is_a?(Hash)
     end
 
-    # Returns changeset class for passed object.
-    # Changeset class name can be overriden with `#recorder_changeset_class` method.
-    # If `#recorder_changeset_class` method is not defined, then class name is generated as "#{class}Changeset"
+    # The model's `recorder_changeset_class`, else `"#{Model}Changeset"` when
+    # that constant exists, else `Recorder::Changeset`.
     # @api private
     def changeset_class(object)
-      klass = (defined?(Draper) && object.decorated?) ? object.source.class : object.class
-      klass = klass.base_class
+      model = (defined?(Draper) && object.decorated?) ? object.source.class : object.class
+      model = model.base_class
 
-      return klass.send(:recorder_changeset_class) if klass.respond_to?(:recorder_changeset_class)
+      return model.recorder_changeset_class if model.respond_to?(:recorder_changeset_class)
 
-      klass = "#{klass}Changeset"
-
-      klass =
-        begin
-          klass.constantize
-        rescue
-          nil
-        end
-      klass.present? ? klass : Recorder::Changeset
+      "#{model}Changeset".safe_constantize || Recorder::Changeset
     end
   end
 

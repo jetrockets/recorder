@@ -95,8 +95,8 @@ module Recorder
       def parse_associations_attributes(event, options)
         return unless options[:associations]
 
-        options[:associations].each_with_object({}) do |(association, options), hash|
-          name, data = parse_association(event, association, options)
+        options[:associations].each_with_object({}) do |(association, association_options), hash|
+          name, data = parse_association(event, association, association_options)
 
           hash[name] = data if data
         end

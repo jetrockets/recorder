@@ -45,6 +45,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   not a hash. These were stored and ignored, or failed when a record was saved.
   `async:` and `delay:` raise too, with a message saying asynchronous recording
   was removed.
+- `Recorder::Rails::ControllerConcern` adds one `before_action`,
+  `set_recorder_info`, which stores `recorder_meta` along with the rest of the
+  request context. The second one, `set_recorder_meta`, is gone, so
+  `recorder_meta` is called once per request, and a
+  `skip_before_action :set_recorder_meta` has to go too. `recorder_user_id`
+  returns `current_user` itself when it does not respond to `id`, as before,
+  without rescuing a `NoMethodError` raised inside `current_user`.
 - **Breaking.** The `recorder_options` class method returns the declared
   options frozen, as a plain `Hash` with symbol keys, even when they were
   declared as a `HashWithIndifferentAccess`, so a string key such as
@@ -194,7 +201,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   left out `item_type` and `item_id`, so every revision failed validation and
   was dropped.
 
-## [1.4.0]
+## [1.4.0] - 2026-09-22
 
 ### Added
 

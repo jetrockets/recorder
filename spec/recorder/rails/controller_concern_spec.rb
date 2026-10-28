@@ -83,7 +83,12 @@ RSpec.describe Recorder::Rails::ControllerConcern, type: :controller do
       private
 
       def recorder_meta
+        recorder_meta_calls << :call
         {locale: 'en'}
+      end
+
+      def recorder_meta_calls
+        @recorder_meta_calls ||= []
       end
     end
 
@@ -91,6 +96,12 @@ RSpec.describe Recorder::Rails::ControllerConcern, type: :controller do
       get :index
 
       expect(Recorder.store.params[:meta]).to eq(locale: 'en')
+    end
+
+    it 'calls it once per request' do
+      get :index
+
+      expect(controller.send(:recorder_meta_calls).size).to eq(1)
     end
 
     it 'writes it on the revisions that follow' do

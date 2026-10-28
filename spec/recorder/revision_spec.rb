@@ -6,13 +6,9 @@ module Recorder
   RSpec.describe Revision do
     let(:user) { User.create!(name: 'Igor') }
 
-    # `Tape::Record#record` calls `create`, not `create!`, so a revision that
-    # fails validation is dropped without raising. Were `belongs_to :user`
-    # required, every `create` would fail validation and return an object, and
-    # auditing would stop for every model in the app with nothing raised
-    # anywhere. Were `belongs_to :item` required, every `destroy` revision would
-    # be dropped the same way, since it is written after the row is deleted.
-    # These examples fail loudly instead.
+    # Were `belongs_to :user` required, every save without a user would raise
+    # `RevisionNotSaved`. Were `belongs_to :item` required, so would every
+    # `destroy`, since its revision is written after the row is deleted.
     describe 'recording without a user' do
       context 'when no user is set' do
         it 'records a revision' do

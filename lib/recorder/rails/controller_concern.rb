@@ -7,22 +7,20 @@ module Recorder
     module ControllerConcern
       def self.included(base)
         base.before_action :set_recorder_info
-        base.before_action :set_recorder_meta
       end
 
       protected
 
-      # Returns the user who is responsible for any changes that occur.
-      # By default this calls `current_user` and returns the result.
+      # Returns the id of the user responsible for any changes that occur:
+      # `current_user`'s `id`, or `current_user` itself when it is the id.
       #
       # Override this method in your controller to call a different
       # method, e.g. `current_person`, or anything you like.
       def recorder_user_id
-        return unless defined?(current_user)
+        return unless respond_to?(:current_user, true)
 
-        current_user.try!(:id)
-      rescue NoMethodError
-        current_user
+        user = current_user
+        user.respond_to?(:id) ? user.id : user
       end
 
       def recorder_info
@@ -44,10 +42,6 @@ module Recorder
       # alongside any changes that occur.
       def set_recorder_info
         ::Recorder.info = recorder_info
-      end
-
-      def set_recorder_meta
-        ::Recorder.meta = recorder_meta
       end
     end
   end
