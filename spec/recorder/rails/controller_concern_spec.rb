@@ -135,6 +135,13 @@ RSpec.describe Recorder::Rails::ControllerConcern, type: :controller do
       expect(Recorder.store.params).not_to have_key(:meta)
     end
 
+    it 'writes no meta on the revisions that follow' do
+      get :index
+      security = Security.create!(name: 'Facebook', identifier: 'FB')
+
+      expect(security.revisions.last.meta).to be_nil
+    end
+
     it 'still keeps the rest of the request context' do
       get :index
 

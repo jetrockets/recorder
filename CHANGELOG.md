@@ -15,8 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the database or calls a service did that work twice on every request,
   including requests that write nothing.
 - `skip_before_action :set_recorder_meta` leaves meta unset, so revisions
-  written in that request have no meta. It used to change nothing, because
-  `set_recorder_info` set meta as well.
+  written in that request have no meta unless the app sets `Recorder.meta`
+  itself. It used to change nothing, because `set_recorder_info` set meta as
+  well.
 
 ## [2.0.0]
 
