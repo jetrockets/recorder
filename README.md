@@ -261,7 +261,9 @@ To enable storing of such data as user_id and ip, you need to include `Recorder:
 ```
 
 The concern reads `current_user`; override `recorder_user_id` to name a different
-method. Override `recorder_meta` to store a hash alongside every revision. A
+method. Override `recorder_meta` to store a hash alongside every revision. It is
+called once per request, by the `set_recorder_meta` before_action, so a
+controller that calls `skip_before_action :set_recorder_meta` stores no meta. A
 revision without a user is valid — `user_id` stays `nil`.
 
 `revision.user` loads a `User` model. If your user model has another name,
