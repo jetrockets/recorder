@@ -29,8 +29,7 @@ module Recorder
         {
           user_id: recorder_user_id,
           ip: request.remote_ip,
-          action_date: Date.current,
-          meta: recorder_meta
+          action_date: Date.current
         }
       end
 
