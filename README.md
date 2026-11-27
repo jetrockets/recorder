@@ -292,18 +292,59 @@ Recorder.info = {action_date: Date.new(2020, 1, 1)}
 `ArgumentError` for it and for the other columns Recorder writes itself: `id`,
 `item_type`, `item_id`, `event` and `data`.
 
+### Info for some saves only
+
+`Recorder.with_info` sets info for the saves in a block, such as the reason for
+a change or the role it was made under:
+
+```ruby
+def publish!
+  Recorder.with_info(meta: {reason: 'Scheduled'}) do
+    update!(published: true)
+  end
+end
+```
+
+Every revision written inside the block gets it, from the callbacks or from
+`Recorder::Tape`. It takes the keys `Recorder.info=` takes, stores them as
+symbols and raises `ArgumentError` for the columns Recorder writes itself,
+before the block runs. It returns the block's value.
+
+- `meta:` is merged into the current meta, one level deep: its keys are added,
+  or replace the ones the current meta has. Keys on both sides are symbols for
+  the block, so `reason:` replaces a `'reason'` the request set. `meta: nil`
+  leaves the block's revisions without meta. `meta:` has to be a Hash or `nil`,
+  and so does the current meta it merges into; anything else raises
+  `ArgumentError`.
+- Any other key replaces its current value for the block. `user_id: nil`
+  writes revisions without a user, for a change the app makes on its own
+  during a user's request.
+
+When the block ends, by returning or raising, the info is put back exactly as
+the block found it: keys it added are removed, keys it replaced get their
+values back, and meta that was `nil` or unset goes back to that. That includes
+whatever code inside the block set through `Recorder.info=` or `Recorder.meta=`:
+it holds until the block ends. Blocks nest, each starting from the info of the
+one around it and putting it back when it ends.
+
+`with_info` changes the info and nothing else. A revision is written inside the
+block only when one would be written outside it, and `recorder_disabled!`
+called inside the block without a block of its own stays in effect after it.
+Like `Recorder.info=`, it applies to the current request or thread.
+
 ### Reading the current info
 
 ```ruby
 Recorder.user_id  # the user id, or nil
 Recorder.meta     # the meta, or nil
-Recorder.info     # every key Recorder.info= and Recorder.meta= set, or {}
+Recorder.info     # every key Recorder.info=, Recorder.meta= and with_info set, or {}
 ```
 
 Each returns a frozen copy, nested Hashes, Arrays and Strings included, so
-changing it raises `FrozenError` and never changes what Recorder writes. To
-change the info, build a new Hash and set it with `Recorder.info=` or
-`Recorder.meta=`:
+changing it raises `FrozenError` and never changes what Recorder writes. Inside
+a `with_info` block they return the block's info. To change the info, build a
+new Hash and set it, for the rest of the request with `Recorder.info=` or
+`Recorder.meta=`, or for a block with `with_info`:
 
 ```ruby
 Recorder.meta = Recorder.meta.to_h.merge(locale: I18n.locale)
@@ -317,8 +358,9 @@ recorder if: -> { Recorder.user_id.present? }
 ```
 
 `Recorder.store` is internal and may change in any release. Read the info with
-these methods instead of `Recorder.store.params`, and switch recording off with
-`recorder_disabled!` (see below).
+these methods instead of `Recorder.store.params`, set it for a few saves with
+`with_info` instead of merging into the store and cleaning up afterwards, and
+switch recording off with `recorder_disabled!` (see below).
 
 ### Turning recording off
 

@@ -48,15 +48,7 @@ module Recorder
     # @raise [ArgumentError] if the hash sets a column Recorder writes itself
     # @api public
     def info=(hash)
-      hash = hash.symbolize_keys
-      reserved = hash.keys & RESERVED_INFO_KEYS
-
-      if reserved.any?
-        raise ArgumentError, "Recorder.info cannot set columns Recorder writes itself: #{reserved.join(", ")}. " \
-                             'To date a revision, set action_date.'
-      end
-
-      store.params.merge!(hash)
+      store.params.merge!(normalize_info(hash, 'Recorder.info'))
     end
 
     # Sets Recorder meta information.
@@ -65,8 +57,34 @@ module Recorder
       store.params[:meta] = hash
     end
 
+    # Sets Recorder information for the block only and returns the block's
+    # value. Keys follow `info=`. `meta:` is merged into the current meta with
+    # symbol keys, or clears it if `nil`; any other key replaces its current
+    # value. When the block ends, by returning or raising, the information is
+    # restored exactly as it was before the block, writes made inside it
+    # through `info=` and `meta=` included. The recording switch is left alone.
+    # @raise [ArgumentError] before the block runs, if there is no block, if
+    #   the hash sets a column Recorder writes itself, or if `meta:` or the
+    #   current meta is neither a Hash nor `nil`
+    # @api public
+    def with_info(hash)
+      raise ArgumentError, 'Recorder.with_info needs a block. To set info for the rest of the request, use Recorder.info=.' unless block_given?
+
+      info = normalize_info(hash, 'Recorder.with_info')
+      info[:meta] = merged_meta(info[:meta]) if info.key?(:meta)
+      params = store.params
+      previous = params.dup
+
+      begin
+        params.merge!(info)
+        yield
+      ensure
+        params.replace(previous)
+      end
+    end
+
     # Returns a frozen copy of the current Recorder information: every key
-    # set through `info=` and `meta=`, or an empty Hash.
+    # set through `info=`, `meta=` and `with_info`, or an empty Hash.
     # @api public
     def info
       params = store.params.dup
@@ -107,9 +125,34 @@ module Recorder
 
     private
 
+    def normalize_info(hash, writer)
+      hash = hash.symbolize_keys
+      reserved = hash.keys & RESERVED_INFO_KEYS
+
+      if reserved.any?
+        raise ArgumentError, "#{writer} cannot set columns Recorder writes itself: #{reserved.join(", ")}. " \
+                             'To date a revision, set action_date.'
+      end
+
+      hash
+    end
+
     # The only place that reads the meta from the store.
     def current_meta
       store.params[:meta]
+    end
+
+    # A new Hash, so neither the caller's meta nor the current one changes.
+    def merged_meta(meta)
+      return if meta.nil?
+      raise ArgumentError, "Recorder.with_info takes a Hash as meta:, or nil for none, not #{meta.class}." unless meta.is_a?(Hash)
+
+      current = current_meta || {}
+      unless current.is_a?(Hash)
+        raise ArgumentError, "Recorder.with_info cannot merge meta: into the current meta, a #{current.class}."
+      end
+
+      current.symbolize_keys.merge(meta.symbolize_keys)
     end
 
     # A copy frozen all the way down, which shares nothing with the store.

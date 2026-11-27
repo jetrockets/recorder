@@ -103,6 +103,363 @@ RSpec.describe Recorder do
     end
   end
 
+  describe '.with_info' do
+    let(:params) { described_class.store.params }
+    let(:manager) { Class.new { include Recorder::Manager }.new }
+
+    def write_revision
+      Security.create!(name: 'Facebook', identifier: 'FB').revisions.last
+    end
+
+    describe 'scope' do
+      it 'applies the info to the revisions written inside the block' do
+        revision = described_class.with_info(user_id: 7, meta: {reason: 'Scheduled'}) { write_revision }
+
+        expect(revision).to have_attributes(user_id: 7, meta: {'reason' => 'Scheduled'})
+      end
+
+      it 'applies the info to the revisions Recorder::Tape writes' do
+        described_class.with_info(user_id: 7) do
+          Recorder::Tape.record(item_type: 'Security', item_id: 1, event: 'create', data: {attributes: {name: 'FB'}})
+        end
+
+        expect(Recorder::Revision.last.user_id).to eq(7)
+      end
+
+      it 'leaves the revisions written after the block without it' do
+        described_class.with_info(user_id: 7, meta: {reason: 'Scheduled'}) { nil }
+
+        expect(write_revision).to have_attributes(user_id: nil, meta: nil)
+      end
+
+      it "returns the block's value" do
+        expect(described_class.with_info(user_id: 7) { :value }).to eq(:value)
+      end
+
+      it 'applies to the current thread only' do
+        described_class.info = {user_id: 1}
+        inside = Queue.new
+        release = Queue.new
+        thread =
+          Thread.new do
+            described_class.with_info(user_id: 2) do
+              inside << described_class.user_id
+              release.pop
+            end
+          rescue => e
+            inside << e
+          end
+
+        expect(inside.pop).to eq(2)
+        expect(described_class.user_id).to eq(1)
+      ensure
+        release << true
+        thread.join
+      end
+    end
+
+    describe 'restoring the info' do
+      it 'removes a key that was absent' do
+        described_class.with_info(user_id: 7) { nil }
+
+        expect(params).not_to have_key(:user_id)
+      end
+
+      it 'restores the earlier value of a key' do
+        described_class.info = {user_id: 1}
+        described_class.with_info(user_id: 7) { nil }
+
+        expect(params).to eq(user_id: 1)
+      end
+
+      it 'restores a key that was explicitly nil' do
+        described_class.info = {user_id: nil}
+        described_class.with_info(user_id: 7) { nil }
+
+        expect(params).to eq(user_id: nil)
+      end
+
+      it 'removes the meta when there was none' do
+        described_class.with_info(meta: {reason: 'Scheduled'}) { nil }
+
+        expect(params).not_to have_key(:meta)
+      end
+
+      it 'restores a nil meta' do
+        described_class.meta = nil
+        described_class.with_info(meta: {reason: 'Scheduled'}) { nil }
+
+        expect(params).to eq(meta: nil)
+      end
+
+      it 'restores the earlier meta Hash itself, unchanged' do
+        meta = {locale: 'en'}
+        described_class.meta = meta
+        described_class.with_info(meta: {reason: 'Scheduled'}) { nil }
+
+        expect(params[:meta]).to equal(meta).and eq(locale: 'en')
+      end
+
+      it 'restores a meta key the block also set' do
+        described_class.meta = {reason: 'Manual', locale: 'en'}
+        described_class.with_info(meta: {reason: 'Scheduled'}) { nil }
+
+        expect(params[:meta]).to eq(reason: 'Manual', locale: 'en')
+      end
+
+      it 'restores the info when the block raises, and re-raises the error' do
+        described_class.info = {user_id: 1, meta: {locale: 'en'}}
+
+        expect { described_class.with_info(user_id: 7, meta: {reason: 'Scheduled'}) { raise 'boom' } }
+          .to raise_error(RuntimeError, 'boom')
+        expect(params).to eq(user_id: 1, meta: {locale: 'en'})
+      end
+
+      it 'applies info= written inside the block to the rest of the block' do
+        revision =
+          described_class.with_info(user_id: 7) do
+            described_class.info = {ip: '10.0.0.1'}
+            write_revision
+          end
+
+        expect(revision).to have_attributes(user_id: 7, ip: IPAddr.new('10.0.0.1'))
+      end
+
+      it 'undoes info= written inside the block' do
+        described_class.info = {ip: '127.0.0.1'}
+        described_class.with_info(user_id: 7) { described_class.info = {ip: '10.0.0.1', action_date: Date.new(2020, 1, 1)} }
+
+        expect(params).to eq(ip: '127.0.0.1')
+      end
+
+      it 'undoes meta= written inside the block' do
+        described_class.meta = {locale: 'en'}
+        described_class.with_info(user_id: 7) { described_class.meta = {locale: 'fr'} }
+
+        expect(params).to eq(meta: {locale: 'en'})
+      end
+    end
+
+    describe 'nesting' do
+      it 'stacks an inner block on an outer one' do
+        described_class.meta = {locale: 'en'}
+
+        revision =
+          described_class.with_info(user_id: 7, meta: {reason: 'Scheduled'}) do
+            described_class.with_info(meta: {reason: 'Retry', attempt: 2}) { write_revision }
+          end
+
+        expect(revision).to have_attributes(user_id: 7, meta: {'locale' => 'en', 'reason' => 'Retry', 'attempt' => 2})
+      end
+
+      it 'unwinds to the outer block, then to the info before both' do
+        described_class.meta = {locale: 'en'}
+        after_inner = nil
+
+        described_class.with_info(user_id: 7, meta: {reason: 'Scheduled'}) do
+          described_class.with_info(user_id: 8, meta: {reason: 'Retry'}) { nil }
+          after_inner = params.dup
+        end
+
+        expect(after_inner).to eq(user_id: 7, meta: {locale: 'en', reason: 'Scheduled'})
+        expect(params).to eq(meta: {locale: 'en'})
+      end
+
+      it 'unwinds an inner block that raises to the outer block' do
+        after_inner = nil
+
+        described_class.with_info(user_id: 7) do
+          described_class.with_info(user_id: 8) { raise 'boom' }
+        rescue RuntimeError
+          after_inner = params.dup
+        end
+
+        expect(after_inner).to eq(user_id: 7)
+        expect(params).to be_empty
+      end
+    end
+
+    describe 'the keys it sets' do
+      it 'merges meta into the current meta' do
+        described_class.meta = {locale: 'en'}
+
+        meta = described_class.with_info(meta: {reason: 'Scheduled'}) { described_class.meta }
+
+        expect(meta).to eq(locale: 'en', reason: 'Scheduled')
+      end
+
+      it 'replaces a meta key the current meta has' do
+        described_class.meta = {reason: 'Manual'}
+
+        meta = described_class.with_info(meta: {reason: 'Scheduled'}) { described_class.meta }
+
+        expect(meta).to eq(reason: 'Scheduled')
+      end
+
+      it 'uses its meta when there is no current meta' do
+        meta = described_class.with_info(meta: {reason: 'Scheduled'}) { described_class.meta }
+
+        expect(meta).to eq(reason: 'Scheduled')
+      end
+
+      it 'clears the meta for the block when given nil' do
+        described_class.meta = {locale: 'en'}
+
+        revision = described_class.with_info(meta: nil) { write_revision }
+
+        expect(revision.meta).to be_nil
+        expect(params).to eq(meta: {locale: 'en'})
+      end
+
+      it 'replaces the value of any other key' do
+        described_class.info = {user_id: 1, ip: '127.0.0.1'}
+
+        revision = described_class.with_info(user_id: 7) { write_revision }
+
+        expect(revision).to have_attributes(user_id: 7, ip: IPAddr.new('127.0.0.1'))
+      end
+
+      it 'replaces another key with an explicit nil' do
+        described_class.info = {user_id: 1}
+
+        revision = described_class.with_info(user_id: nil) { write_revision }
+
+        expect(revision.user_id).to be_nil
+      end
+
+      it 'stores string keys as symbols' do
+        described_class.info = {user_id: 1}
+
+        info = described_class.with_info('user_id' => 7, 'meta' => {'reason' => 'Scheduled'}) { params.dup }
+
+        expect(info).to eq(user_id: 7, meta: {reason: 'Scheduled'})
+      end
+
+      it 'replaces a key the current meta has as a string' do
+        described_class.meta = {'reason' => 'Manual', 'locale' => 'en'}
+
+        revision =
+          described_class.with_info(meta: {reason: 'Scheduled'}) do
+            expect(described_class.meta).to eq(reason: 'Scheduled', locale: 'en')
+            write_revision
+          end
+
+        expect(revision.meta).to eq('reason' => 'Scheduled', 'locale' => 'en')
+      end
+
+      [{'reason' => 'Manual', :reason => 'Scheduled'}, {:reason => 'Scheduled', 'reason' => 'Manual'}].each do |meta|
+        it "keeps the value a revision gets without the block for a meta of #{meta.inspect}" do
+          described_class.meta = meta
+
+          without = write_revision.meta['reason']
+          within = described_class.with_info(meta: {locale: 'en'}) { write_revision.meta['reason'] }
+
+          expect(within).to eq(without)
+        end
+      end
+    end
+
+    describe 'what it refuses' do
+      %i[id item_type item_id event data created_at].each do |column|
+        it "refuses #{column}, which Recorder writes itself, before running the block" do
+          ran = false
+
+          expect { described_class.with_info(column => 'anything') { ran = true } }
+            .to raise_error(ArgumentError, /Recorder.with_info cannot set columns Recorder writes itself: #{column}\./)
+          expect(ran).to be(false)
+        end
+      end
+
+      it 'refuses a reserved column given as a string key' do
+        expect { described_class.with_info('created_at' => Time.current) { nil } }.to raise_error(ArgumentError, /created_at/)
+      end
+
+      it 'refuses meta that is neither a Hash nor nil' do
+        expect { described_class.with_info(meta: [:reason]) { nil } }
+          .to raise_error(ArgumentError, /takes a Hash as meta:, or nil for none, not Array/)
+      end
+
+      it 'refuses to merge into a current meta that is not a Hash' do
+        described_class.meta = 'Scheduled'
+
+        expect { described_class.with_info(meta: {reason: 'Retry'}) { nil } }
+          .to raise_error(ArgumentError, /cannot merge meta: into the current meta, a String/)
+      end
+
+      it 'refuses to run without a block' do
+        expect { described_class.with_info(user_id: 7) }.to raise_error(ArgumentError, /needs a block/)
+      end
+
+      it 'changes none of the info when it refuses' do
+        described_class.info = {user_id: 1}
+
+        expect { described_class.with_info(user_id: 7, data: {}) { nil } }.to raise_error(ArgumentError)
+        expect { described_class.with_info(user_id: 7, meta: 'Retry') { nil } }.to raise_error(ArgumentError)
+        expect { described_class.with_info(user_id: 7) }.to raise_error(ArgumentError)
+        expect(params).to eq(user_id: 1)
+      end
+    end
+
+    describe 'the Hashes it is given' do
+      it "leaves the caller's Hash and its meta unchanged" do
+        info = {'user_id' => 7, :meta => {'reason' => 'Scheduled'}}
+        described_class.meta = {locale: 'en'}
+
+        described_class.with_info(info) { nil }
+
+        expect(info).to eq('user_id' => 7, :meta => {'reason' => 'Scheduled'})
+        expect(info).not_to be_frozen
+      end
+
+      it "stores a copy of the caller's meta" do
+        meta = {reason: 'Scheduled'}
+
+        described_class.with_info(meta: meta) { params[:meta][:attempt] = 2 }
+
+        expect(meta).to eq(reason: 'Scheduled')
+      end
+
+      it "leaves the outer block's meta Hash unchanged" do
+        outer = nil
+
+        described_class.with_info(meta: {reason: 'Scheduled'}) do
+          outer = params[:meta]
+          described_class.with_info(meta: {attempt: 2}) { nil }
+        end
+
+        expect(outer).to eq(reason: 'Scheduled')
+      end
+    end
+
+    describe 'with recorder_disabled!' do
+      it 'leaves recording off after recorder_disabled! called inside the block' do
+        described_class.with_info(user_id: 7) { manager.recorder_disabled! }
+
+        expect(described_class.recording?).to be(false)
+      end
+
+      it 'leaves the info in place for the rest of the block after a recorder_disabled! block' do
+        described_class.with_info(user_id: 7) do
+          manager.recorder_disabled! { write_revision }
+          write_revision
+        end
+
+        expect(Recorder::Revision.pluck(:user_id)).to eq([7])
+      end
+
+      it 'writes nothing inside a recorder_disabled! block and restores both afterwards' do
+        expect do
+          manager.recorder_disabled! do
+            described_class.with_info(user_id: 7) { Security.create!(name: 'Facebook', identifier: 'FB') }
+          end
+        end.not_to change(Recorder::Revision, :count)
+
+        expect(params).to be_empty
+        expect(described_class.recording?).to be(true)
+      end
+    end
+  end
+
   describe '.info' do
     it 'returns the current info' do
       described_class.info = {user_id: 1, ip: '127.0.0.1', meta: {locale: 'en'}}
@@ -111,6 +468,13 @@ RSpec.describe Recorder do
     end
 
     it 'returns an empty Hash when no info is set' do
+      expect(described_class.info).to eq({})
+    end
+
+    it 'reflects a with_info block inside it and not after it' do
+      inside = described_class.with_info(user_id: 7) { described_class.info }
+
+      expect(inside).to eq(user_id: 7)
       expect(described_class.info).to eq({})
     end
 
@@ -151,6 +515,15 @@ RSpec.describe Recorder do
       expect(described_class.meta).to be_nil
     end
 
+    it 'reflects a with_info block inside it and not after it' do
+      described_class.meta = {locale: 'en'}
+
+      inside = described_class.with_info(meta: {reason: 'Scheduled'}) { described_class.meta }
+
+      expect(inside).to eq(locale: 'en', reason: 'Scheduled')
+      expect(described_class.meta).to eq(locale: 'en')
+    end
+
     it 'returns a frozen copy, nested values included' do
       described_class.meta = {source: {name: +'csv'}}
 
@@ -180,6 +553,13 @@ RSpec.describe Recorder do
 
     it 'is nil when no user id is set' do
       expect(described_class.user_id).to be_nil
+    end
+
+    it 'reflects a with_info block inside it and not after it' do
+      described_class.info = {user_id: 1}
+
+      expect(described_class.with_info(user_id: 7) { described_class.user_id }).to eq(7)
+      expect(described_class.user_id).to eq(1)
     end
 
     it 'returns a frozen copy of a String id' do

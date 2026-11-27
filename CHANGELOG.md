@@ -9,9 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `Recorder.with_info`, which sets Recorder information for the saves in a
+  block and returns the block's value. `meta:` is merged into the current
+  meta with symbol keys, `meta: nil` leaves the block's revisions without
+  meta, and any other key replaces its current value. It takes the keys
+  `Recorder.info=` takes, so a column Recorder writes itself raises
+  `ArgumentError`, before the block runs. When the block returns or raises,
+  the information is restored exactly as it was, including whatever was set
+  through `Recorder.info=` or `Recorder.meta=` inside it. Blocks nest. It does
+  not switch recording on or off.
 - `Recorder.user_id`, `Recorder.meta` and `Recorder.info`, which return the
-  current request information as frozen copies, nested values included. They
-  replace reads of `Recorder.store.params`, which is internal.
+  current request information as frozen copies, nested values included, and
+  reflect `with_info`. They replace reads of `Recorder.store.params`, which is
+  internal.
 
 ## [2.0.0]
 
