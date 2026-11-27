@@ -15,6 +15,11 @@ require File.expand_path('../../lib/generators/recorder/install_generator', __di
 describe Recorder::InstallGenerator, type: :generator do
   destination File.expand_path('../../../tmp', __FILE__)
 
+  # Postgres refuses to build an index concurrently inside a transaction, so
+  # these examples run outside the one each example normally gets. What they
+  # create lives in the throwaway schema below, which is dropped afterwards.
+  self.use_transactional_tests = false
+
   # The dummy app already owns `recorder_revisions` in `public`. Running the
   # generated migration there would collide with it, so each example gets a
   # throwaway schema and the search path is restored afterwards either way.
@@ -47,9 +52,17 @@ describe Recorder::InstallGenerator, type: :generator do
   # Runs every generated migration, in filename order. Nothing is recorded in
   # `schema_migrations` and each one runs outside a transaction of its own, so
   # this establishes that the migrations execute, not that they are reversible.
-  #
-  # Each one is evaluated inside a throwaway module rather than `load`ed at top
-  # level, because the dummy app ships its own hand-written
+  def run_generated_migrations
+    generated_migrations.each { |path| run_migration(path, :up) }
+  end
+
+  # Runs the one generated migration named `name`, in `direction`.
+  def run_generated_migration(name, direction = :up)
+    run_migration(generated_migrations.find { |path| path.end_with?("_#{name}.rb") }, direction)
+  end
+
+  # The migration is evaluated inside a throwaway module rather than `load`ed
+  # at top level, because the dummy app ships its own hand-written
   # `CreateRecorderRevisions` — the same constant, declared
   # `ActiveRecord::Migration[6.1]`. `rails_helper` loads it at boot whenever
   # there are migrations to run, so on any Rails but 6.1 defining the generated
@@ -59,15 +72,13 @@ describe Recorder::InstallGenerator, type: :generator do
   # dummy app is up to date, Active Record never loads the migration files and
   # the constant never exists. So it reproduces on a fresh database — CI, or a
   # first local run — and hides everywhere else.
-  def run_generated_migrations
+  def run_migration(path, direction)
     was_verbose = ActiveRecord::Migration.verbose
     ActiveRecord::Migration.verbose = false
 
-    generated_migrations.each do |path|
-      namespace = Module.new
-      namespace.module_eval(File.read(path), path)
-      namespace.constants.each { |name| namespace.const_get(name).new.migrate(:up) }
-    end
+    namespace = Module.new
+    namespace.module_eval(File.read(path), path)
+    namespace.constants.each { |name| namespace.const_get(name).new.migrate(direction) }
   ensure
     ActiveRecord::Migration.verbose = was_verbose
   end
@@ -149,6 +160,117 @@ describe Recorder::InstallGenerator, type: :generator do
         expect { run_generated_migrations }.not_to raise_error
 
         expect(connection.indexes('recorder_revisions').map(&:columns)).to include(['user_id'])
+      end
+    end
+  end
+
+  describe '`--with_index_by_item_and_created_at` option' do
+    let(:upgrade) { 'add_index_by_item_and_created_at_to_recorder_revisions' }
+    let(:item_index) { 'index_recorder_revisions_on_item_type_and_item_id' }
+    let(:new_index) { 'index_recorder_revisions_on_item_and_created_at' }
+    let(:new_columns) { %w[item_type item_id created_at id] }
+
+    before do
+      prepare_destination
+      run_generator %w[--with_index_by_item_and_created_at]
+    end
+
+    # The table as an earlier install has it, indexed on `(item_type, item_id)`.
+    def create_table_with_item_index(connection)
+      run_generated_migration('create_recorder_revisions')
+      connection.remove_index :recorder_revisions, name: new_index
+      connection.add_index :recorder_revisions, %i[item_type item_id], name: item_index
+    end
+
+    # A concurrent build that fails leaves its index behind, marked invalid.
+    # A unique index over duplicate values fails that way.
+    def leave_invalid_index(connection, name)
+      connection.execute(<<~SQL.squish)
+        INSERT INTO recorder_revisions (item_type, event, data, action_date, created_at)
+        VALUES ('Post', 'create', '{}', CURRENT_DATE, now()), ('Post', 'update', '{}', CURRENT_DATE, now())
+      SQL
+      connection.execute("CREATE UNIQUE INDEX CONCURRENTLY #{name} ON recorder_revisions (item_type)")
+    rescue ActiveRecord::RecordNotUnique
+      nil
+    end
+
+    def valid_index?(connection, name)
+      connection.select_value(<<~SQL.squish)
+        SELECT indisvalid FROM pg_index WHERE indexrelid = #{connection.quote(name)}::regclass
+      SQL
+    end
+
+    it 'generates the upgrade migration after the create migration' do
+      expect(generated_migrations.map { |path| File.basename(path).sub(/\A\d+_/, '') })
+        .to eq(['create_recorder_revisions.rb', "#{upgrade}.rb"])
+    end
+
+    it 'replaces the item index of an existing install' do
+      in_isolated_schema do |connection|
+        create_table_with_item_index(connection)
+
+        run_generated_migration(upgrade)
+
+        expect(indexed_columns(connection)).to eq(new_index => new_columns)
+        expect(valid_index?(connection, new_index)).to be(true)
+      end
+    end
+
+    it 'restores the item index when rolled back' do
+      in_isolated_schema do |connection|
+        create_table_with_item_index(connection)
+        run_generated_migration(upgrade)
+
+        run_generated_migration(upgrade, :down)
+
+        expect(indexed_columns(connection)).to eq(item_index => %w[item_type item_id])
+      end
+    end
+
+    it 'leaves a fresh install as it is' do
+      in_isolated_schema do |connection|
+        run_generated_migration('create_recorder_revisions')
+
+        expect { run_generated_migration(upgrade) }.not_to(change { indexed_columns(connection) })
+      end
+    end
+
+    context 'when an earlier run was interrupted' do
+      it 'drops the item index once the new one is built' do
+        in_isolated_schema do |connection|
+          create_table_with_item_index(connection)
+          connection.add_index :recorder_revisions, new_columns, name: new_index
+
+          run_generated_migration(upgrade)
+
+          expect(indexed_columns(connection)).to eq(new_index => new_columns)
+        end
+      end
+
+      it 'rebuilds the index an interrupted build left invalid' do
+        in_isolated_schema do |connection|
+          create_table_with_item_index(connection)
+          leave_invalid_index(connection, new_index)
+          expect(valid_index?(connection, new_index)).to be(false)
+
+          run_generated_migration(upgrade)
+
+          expect(indexed_columns(connection)).to eq(new_index => new_columns)
+          expect(valid_index?(connection, new_index)).to be(true)
+        end
+      end
+
+      it 'rebuilds the item index an interrupted rollback left invalid' do
+        in_isolated_schema do |connection|
+          create_table_with_item_index(connection)
+          run_generated_migration(upgrade)
+          leave_invalid_index(connection, item_index)
+
+          run_generated_migration(upgrade, :down)
+
+          expect(indexed_columns(connection)).to eq(item_index => %w[item_type item_id])
+          expect(valid_index?(connection, item_index)).to be(true)
+        end
       end
     end
   end

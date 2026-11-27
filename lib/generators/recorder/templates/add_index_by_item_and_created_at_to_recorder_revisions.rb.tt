@@ -1,0 +1,41 @@
+# frozen_string_literal: true
+
+# This migration replaces the `(item_type, item_id)` index of the
+# `recorder_revisions` table with one on `(item_type, item_id, created_at, id)`,
+# which serves the same lookups and also returns a record's revisions in
+# `ordered_by_created_at` order without sorting them.
+#
+# Indexes are built and dropped concurrently, outside a transaction, so the table
+# stays writable meanwhile. Each step skips what is already done, and an invalid
+# index left behind by an interrupted build is dropped and built again, so an
+# interrupted run can be run again.
+class AddIndexByItemAndCreatedAtToRecorderRevisions < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  disable_ddl_transaction!
+
+  ITEM_INDEX = 'index_recorder_revisions_on_item_type_and_item_id'
+  ITEM_AND_CREATED_AT_INDEX = 'index_recorder_revisions_on_item_and_created_at'
+
+  def up
+    replace_index ITEM_INDEX, ITEM_AND_CREATED_AT_INDEX, %i[item_type item_id created_at id]
+  end
+
+  def down
+    replace_index ITEM_AND_CREATED_AT_INDEX, ITEM_INDEX, %i[item_type item_id]
+  end
+
+  private
+
+  def replace_index(old_name, new_name, columns)
+    remove_invalid_index(new_name)
+    add_index :recorder_revisions, columns, name: new_name, algorithm: :concurrently, if_not_exists: true
+    remove_index :recorder_revisions, name: old_name, algorithm: :concurrently, if_exists: true
+  end
+
+  # Postgres keeps an invalid index up to date on every write but never reads it.
+  def remove_invalid_index(name)
+    invalid = select_value(<<~SQL.squish)
+      SELECT 1 FROM pg_index WHERE indexrelid = to_regclass(#{quote(name)}) AND NOT indisvalid
+    SQL
+    remove_index :recorder_revisions, name: name, algorithm: :concurrently if invalid
+  end
+end
