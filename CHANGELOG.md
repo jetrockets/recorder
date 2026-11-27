@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Recorder.meta=` takes a Proc that returns the meta, and so can the
+  controller concern's `recorder_meta` return one. Recorder calls it when the
+  next revision is written, once, and writes its value on that revision and the
+  ones after it, so a request that writes nothing never calls it. It runs
+  inside that revision's save transaction: it sees what the action changed
+  before that save, and an error it raises fails the save and rolls it back. A
+  hash or `nil` behaves as before; a Proc used to be written as `{}`.
+
 ### Changed
 
 - `recorder_info` in `Recorder::Rails::ControllerConcern` no longer includes

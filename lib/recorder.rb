@@ -57,10 +57,12 @@ module Recorder
       store.params.merge!(hash)
     end
 
-    # Sets Recorder meta information.
+    # Sets Recorder meta information: a hash, or a Proc that returns one. A
+    # Proc is called when the next revision is written, once, and its value is
+    # written on that revision and the ones that follow.
     # @api public
-    def meta=(hash)
-      store.params[:meta] = hash
+    def meta=(value)
+      store.params[:meta] = value
     end
 
     # Returns Recorder's configuration object.
