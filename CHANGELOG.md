@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `Recorder::Revision` accepts an empty Hash as `data` for an event other than
+  `create`, `update` and `destroy`, so an event with nothing to add passes
+  validation. Revisions of those three events, the ones the callbacks write,
+  are validated as before.
+
 ## [2.0.0]
 
 ### Added
