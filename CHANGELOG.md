@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `recorder_info` in `Recorder::Rails::ControllerConcern` no longer includes
+  `meta:`. Meta comes from `recorder_meta` alone, through the
+  `set_recorder_meta` before_action. Code that read `recorder_info[:meta]`
+  calls `recorder_meta` instead.
+- Meta is computed where `set_recorder_meta` runs. `set_recorder_info` used to
+  store it as well, so the later of the two callbacks decided it. A controller
+  that moved `set_recorder_info` after its own before_action, by skipping it
+  and adding it again, moves `set_recorder_meta` the same way, or
+  `recorder_meta` runs before that before_action and its revisions record the
+  meta computed there.
+- `skip_before_action :set_recorder_meta` leaves meta unset, so revisions
+  written in that request have no meta unless something else sets it, such as
+  `Recorder.meta = {...}`. It used to change nothing, because
+  `set_recorder_info` set meta as well.
+
+### Fixed
+
+- `Recorder::Rails::ControllerConcern` calls `recorder_meta` once per request,
+  from the `set_recorder_meta` before_action. It used to call it twice, so a
+  `recorder_meta` that queries the database or calls a service did that work
+  twice on every request, including requests that write nothing.
+
 ## [2.0.0]
 
 ### Added

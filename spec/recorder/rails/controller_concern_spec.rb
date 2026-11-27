@@ -93,11 +93,91 @@ RSpec.describe Recorder::Rails::ControllerConcern, type: :controller do
       expect(Recorder.store.params[:meta]).to eq(locale: 'en')
     end
 
+    it 'calls it once per request' do
+      allow(controller).to receive(:recorder_meta).and_call_original
+
+      get :index
+
+      expect(controller).to have_received(:recorder_meta).once
+    end
+
     it 'writes it on the revisions that follow' do
       get :index
       security = Security.create!(name: 'Facebook', identifier: 'FB')
 
       expect(security.revisions.last.meta).to eq('locale' => 'en')
+    end
+  end
+
+  context 'when the controller moves set_recorder_info after its own before_action' do
+    controller(ActionController::Base) do
+      include Recorder::Rails::ControllerConcern
+
+      before_action :set_tenant
+      skip_before_action :set_recorder_info
+      before_action :set_recorder_info
+
+      def index
+        head :ok
+      end
+
+      private
+
+      attr_reader :tenant
+
+      def set_tenant
+        @tenant = 'acme'
+      end
+
+      def recorder_meta
+        {tenant: tenant}
+      end
+    end
+
+    it 'still computes meta where set_recorder_meta runs' do
+      get :index
+
+      expect(Recorder.store.params[:meta]).to eq(tenant: nil)
+    end
+  end
+
+  context 'when the controller skips set_recorder_meta' do
+    controller(ActionController::Base) do
+      include Recorder::Rails::ControllerConcern
+
+      skip_before_action :set_recorder_meta
+
+      def index
+        head :ok
+      end
+
+      private
+
+      def recorder_meta
+        {locale: 'en'}
+      end
+    end
+
+    it 'leaves meta unset' do
+      allow(controller).to receive(:recorder_meta).and_call_original
+
+      get :index
+
+      expect(controller).not_to have_received(:recorder_meta)
+      expect(Recorder.store.params[:meta]).to be_nil
+    end
+
+    it 'writes no meta on the revisions that follow' do
+      get :index
+      security = Security.create!(name: 'Facebook', identifier: 'FB')
+
+      expect(security.revisions.last.meta).to be_nil
+    end
+
+    it 'still keeps the rest of the request context' do
+      get :index
+
+      expect(Recorder.store.params).to include(ip: '0.0.0.0', action_date: Date.current, user_id: nil)
     end
   end
 end
