@@ -49,6 +49,12 @@ The generator accepts one option:
 
 - `--with_index_by_user_id` — adds an index on `user_id`.
 
+The migration indexes revisions on `(item_type, item_id, created_at, id)`, so
+`post.revisions.ordered_by_created_at.limit(20)` reads the newest revisions of a
+record off the index instead of fetching and sorting all of them. An app that
+uses strong_migrations has to wrap that `add_index` in `safety_assured`, since
+strong_migrations rejects a non-unique index on more than three columns.
+
 ## Usage
 
 ### Observing a model

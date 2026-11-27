@@ -25,7 +25,7 @@ ActiveRecord::Schema.define(version: 2026_08_13_000001) do
     t.bigint "user_id"
     t.jsonb "meta"
     t.datetime "created_at", null: false
-    t.index ["item_type", "item_id"], name: "index_recorder_revisions_on_item_type_and_item_id"
+    t.index ["item_type", "item_id", "created_at", "id"], name: "index_recorder_revisions_on_item_and_created_at"
   end
 
   create_table "securities", id: :serial, force: :cascade do |t|

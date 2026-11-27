@@ -72,6 +72,10 @@ describe Recorder::InstallGenerator, type: :generator do
     ActiveRecord::Migration.verbose = was_verbose
   end
 
+  def indexed_columns(connection)
+    connection.indexes('recorder_revisions').to_h { |index| [index.name, index.columns] }
+  end
+
   describe 'no options' do
     before do
       prepare_destination
@@ -119,12 +123,12 @@ describe Recorder::InstallGenerator, type: :generator do
       end
     end
 
-    it 'indexes the polymorphic item' do
+    it 'indexes the polymorphic item in the order of `ordered_by_created_at`' do
       in_isolated_schema do |connection|
         run_generated_migrations
 
-        expect(connection.indexes('recorder_revisions').map(&:columns))
-          .to include(%w[item_type item_id])
+        expect(indexed_columns(connection))
+          .to eq('index_recorder_revisions_on_item_and_created_at' => %w[item_type item_id created_at id])
       end
     end
   end

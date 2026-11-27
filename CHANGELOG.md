@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The `recorder:install` migration indexes `recorder_revisions` on
+  `(item_type, item_id, created_at, id)`, as
+  `index_recorder_revisions_on_item_and_created_at`, in place of
+  `(item_type, item_id)`. The index has the order `ordered_by_created_at`
+  sorts by, so the newest revisions of a record come off the index without a
+  sort, and it serves every lookup the old one did. It is larger, since btree
+  deduplication no longer applies to its keys.
+
 ## [2.0.0]
 
 ### Added
