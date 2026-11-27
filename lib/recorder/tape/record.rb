@@ -22,9 +22,12 @@ module Recorder
       private
 
       # A revision is dated by the request that made the change, or else today
-      # in the application's time zone.
+      # in the application's time zone. Meta is read through the store, which
+      # calls a Proc set as meta. This runs inside `record`, so an error from the
+      # Proc fails the save as a revision that cannot be written does.
       def params_for(params)
-        Recorder.store.params.merge(params).tap do |merged|
+        store = Recorder.store
+        store.params.merge(meta: store.meta).merge(params).tap do |merged|
           merged[:action_date] = merged[:action_date].presence || Date.current
         end
       end
