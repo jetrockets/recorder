@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'active_support/core_ext/object/deep_dup'
+
 require 'recorder/config'
 require 'recorder/version'
 
@@ -63,6 +65,27 @@ module Recorder
       store.params[:meta] = hash
     end
 
+    # Returns a frozen copy of the current Recorder information: every key
+    # set through `info=` and `meta=`, or an empty Hash.
+    # @api public
+    def info
+      params = store.params.dup
+      params[:meta] = current_meta if params.key?(:meta)
+      frozen_copy(params)
+    end
+
+    # Returns a frozen copy of the current meta, or `nil`.
+    # @api public
+    def meta
+      frozen_copy(current_meta)
+    end
+
+    # Returns a frozen copy of the current user id, or `nil`.
+    # @api public
+    def user_id
+      frozen_copy(store.params[:user_id])
+    end
+
     # Returns Recorder's configuration object.
     # @api private
     def config
@@ -80,6 +103,26 @@ module Recorder
     # Returns version of Recorder as +String+
     def version
       VERSION
+    end
+
+    private
+
+    # The only place that reads the meta from the store.
+    def current_meta
+      store.params[:meta]
+    end
+
+    # A copy frozen all the way down, which shares nothing with the store.
+    def frozen_copy(value)
+      deep_freeze(value.deep_dup)
+    end
+
+    def deep_freeze(value)
+      case value
+      when Hash then value.each_value { |nested| deep_freeze(nested) }
+      when Array then value.each { |nested| deep_freeze(nested) }
+      end
+      value.freeze
     end
   end
 end

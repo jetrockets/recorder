@@ -288,9 +288,37 @@ changes, set it yourself; it holds for the rest of the request or thread:
 Recorder.info = {action_date: Date.new(2020, 1, 1)}
 ```
 
-`created_at` is always when the revision was written. `Recorder.info` raises
+`created_at` is always when the revision was written. `Recorder.info=` raises
 `ArgumentError` for it and for the other columns Recorder writes itself: `id`,
 `item_type`, `item_id`, `event` and `data`.
+
+### Reading the current info
+
+```ruby
+Recorder.user_id  # the user id, or nil
+Recorder.meta     # the meta, or nil
+Recorder.info     # every key Recorder.info= and Recorder.meta= set, or {}
+```
+
+Each returns a frozen copy, nested Hashes, Arrays and Strings included, so
+changing it raises `FrozenError` and never changes what Recorder writes. To
+change the info, build a new Hash and set it with `Recorder.info=` or
+`Recorder.meta=`:
+
+```ruby
+Recorder.meta = Recorder.meta.to_h.merge(locale: I18n.locale)
+```
+
+A model can record only the changes made while a user is set, leaving out
+those of a job or a console that sets none:
+
+```ruby
+recorder if: -> { Recorder.user_id.present? }
+```
+
+`Recorder.store` is internal and may change in any release. Read the info with
+these methods instead of `Recorder.store.params`, and switch recording off with
+`recorder_disabled!` (see below).
 
 ### Turning recording off
 

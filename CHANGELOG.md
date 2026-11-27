@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Recorder.user_id`, `Recorder.meta` and `Recorder.info`, which return the
+  current request information as frozen copies, nested values included. They
+  replace reads of `Recorder.store.params`, which is internal.
+
 ## [2.0.0]
 
 ### Added

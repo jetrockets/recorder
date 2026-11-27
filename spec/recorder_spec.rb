@@ -102,4 +102,92 @@ RSpec.describe Recorder do
       expect(described_class.store.params).to be_empty
     end
   end
+
+  describe '.info' do
+    it 'returns the current info' do
+      described_class.info = {user_id: 1, ip: '127.0.0.1', meta: {locale: 'en'}}
+
+      expect(described_class.info).to eq(user_id: 1, ip: '127.0.0.1', meta: {locale: 'en'})
+    end
+
+    it 'returns an empty Hash when no info is set' do
+      expect(described_class.info).to eq({})
+    end
+
+    it 'returns a frozen copy, nested values included' do
+      described_class.info = {ip: +'127.0.0.1', meta: {tags: [+'import'], source: {name: +'csv'}}}
+
+      info = described_class.info
+
+      expect([info,
+        info[:ip],
+        info[:meta],
+        info[:meta][:tags],
+        info[:meta][:tags].first,
+        info[:meta][:source],
+        info[:meta][:source][:name]]).to all(be_frozen)
+      expect(info[:ip]).not_to equal(described_class.store.params[:ip])
+      expect(described_class.store.params[:meta][:tags]).not_to be_frozen
+    end
+
+    it 'can be merged and written back' do
+      described_class.info = {user_id: 1, ip: +'127.0.0.1', meta: {source: {name: +'csv'}}}
+
+      described_class.info = described_class.info.merge(user_id: 2)
+
+      expect(Security.create!(name: 'Facebook', identifier: 'FB').revisions.last)
+        .to have_attributes(user_id: 2, ip: IPAddr.new('127.0.0.1'), meta: {'source' => {'name' => 'csv'}})
+    end
+  end
+
+  describe '.meta' do
+    it 'returns the current meta' do
+      described_class.meta = {locale: 'en'}
+
+      expect(described_class.meta).to eq(locale: 'en')
+    end
+
+    it 'is nil when no meta is set' do
+      expect(described_class.meta).to be_nil
+    end
+
+    it 'returns a frozen copy, nested values included' do
+      described_class.meta = {source: {name: +'csv'}}
+
+      meta = described_class.meta
+
+      expect([meta, meta[:source], meta[:source][:name]]).to all(be_frozen)
+      expect { meta[:source][:name] << 'x' }.to raise_error(FrozenError)
+      expect(described_class.store.params[:meta]).to eq(source: {name: 'csv'})
+    end
+
+    it 'can be merged and written back' do
+      described_class.meta = {source: {name: +'csv'}}
+
+      described_class.meta = described_class.meta.merge(reason: 'Scheduled')
+
+      expect(Security.create!(name: 'Facebook', identifier: 'FB').revisions.last.meta)
+        .to eq('source' => {'name' => 'csv'}, 'reason' => 'Scheduled')
+    end
+  end
+
+  describe '.user_id' do
+    it 'returns the current user id' do
+      described_class.info = {user_id: 1}
+
+      expect(described_class.user_id).to eq(1)
+    end
+
+    it 'is nil when no user id is set' do
+      expect(described_class.user_id).to be_nil
+    end
+
+    it 'returns a frozen copy of a String id' do
+      id = +'9f8e7d6c-0000-4000-8000-000000000000'
+      described_class.info = {user_id: id}
+
+      expect(described_class.user_id).to be_frozen.and eq(id)
+      expect(id).not_to be_frozen
+    end
+  end
 end
