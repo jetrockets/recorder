@@ -3,11 +3,21 @@
 module Recorder
   class Tape
     module Record
+      # Returns `true`, or `nil` while recording is off.
+      # @api private
       def record(params)
+        true if write_revision(params)
+      end
+
+      # The one place a revision is built and saved. Returns the saved
+      # revision, or `nil` while recording is off.
+      # @api private
+      def write_revision(params)
         return unless Recorder.recording?
 
         revision = Recorder::Revision.new(params_for(params))
         revision.save!
+        revision
       # The failure of a revision written from a callback on this one comes
       # through as it is.
       rescue Recorder::RevisionNotSaved

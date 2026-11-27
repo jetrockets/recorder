@@ -70,10 +70,20 @@ RSpec.describe Recorder::Tape::Record do
       expect { record }.to change(Recorder::Revision, :count).by(1)
     end
 
+    it 'returns true when it writes the revision' do
+      expect(record).to be(true)
+    end
+
     it 'writes nothing while the process has recording off' do
       Recorder.enabled = false
 
       expect { record }.not_to change(Recorder::Revision, :count)
+    end
+
+    it 'returns nil while recording is off' do
+      Recorder.enabled = false
+
+      expect(record).to be_nil
     end
 
     it 'writes nothing while the request has recording off' do
