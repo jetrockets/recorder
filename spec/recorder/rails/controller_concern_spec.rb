@@ -64,6 +64,60 @@ RSpec.describe Recorder::Rails::ControllerConcern, type: :controller do
 
       expect { get :index }.to raise_error(NoMethodError, 'broken id')
     end
+
+    context 'when the record is wrapped in a proxy' do
+      let(:proxy_without_respond_to_missing) do
+        Class.new do
+          def initialize(user)
+            @user = user
+          end
+
+          def method_missing(name, *args, &block) # rubocop:disable Style/MissingRespondToMissing
+            @user.public_send(name, *args, &block)
+          end
+        end
+      end
+
+      let(:proxy_without_respond_to) do
+        Class.new(BasicObject) do
+          def initialize(user)
+            @user = user
+          end
+
+          def id
+            @user.id
+          end
+        end
+      end
+
+      def wrap_current_user_in(proxy_class)
+        allow(controller).to receive(:current_user).and_wrap_original { |original| proxy_class.new(original.call) }
+      end
+
+      it 'keeps the id that a proxy with respond_to_missing? forwards' do
+        wrap_current_user_in(SimpleDelegator)
+
+        get :index
+
+        expect(Recorder.store.params[:user_id]).to eq(7)
+      end
+
+      it 'keeps a proxy that answers id only through method_missing as it is' do
+        wrap_current_user_in(proxy_without_respond_to_missing)
+
+        get :index
+        security = Security.create!(name: 'Facebook', identifier: 'FB')
+
+        expect(Recorder.store.params[:user_id]).to be_a(proxy_without_respond_to_missing)
+        expect(security.revisions.last.user_id).to be_nil
+      end
+
+      it 'raises for a proxy that does not implement respond_to?' do
+        wrap_current_user_in(proxy_without_respond_to)
+
+        expect { get :index }.to raise_error(NoMethodError, /respond_to\?/)
+      end
+    end
   end
 
   context 'when current_user returns the id itself' do
