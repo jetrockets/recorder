@@ -48,6 +48,22 @@ RSpec.describe Recorder::Rails::ControllerConcern, type: :controller do
 
       expect(Recorder.store.params[:user_id]).to eq(7)
     end
+
+    it 'calls current_user once' do
+      allow(controller).to receive(:current_user).and_call_original
+
+      get :index
+
+      expect(controller).to have_received(:current_user).once
+    end
+
+    it 'lets a NoMethodError raised by its id through' do
+      user = User.new(id: 7)
+      allow(user).to receive(:id).and_raise(NoMethodError, 'broken id')
+      allow(controller).to receive(:current_user).and_return(user)
+
+      expect { get :index }.to raise_error(NoMethodError, 'broken id')
+    end
   end
 
   context 'when current_user returns the id itself' do
@@ -69,6 +85,62 @@ RSpec.describe Recorder::Rails::ControllerConcern, type: :controller do
       get :index
 
       expect(Recorder.store.params[:user_id]).to eq(42)
+    end
+
+    it 'calls current_user once' do
+      allow(controller).to receive(:current_user).and_call_original
+
+      get :index
+
+      expect(controller).to have_received(:current_user).once
+    end
+  end
+
+  context 'when current_user returns nil' do
+    controller(ActionController::Base) do
+      include Recorder::Rails::ControllerConcern
+
+      def index
+        head :ok
+      end
+
+      private
+
+      def current_user
+        nil
+      end
+    end
+
+    it 'leaves the user blank and calls current_user once' do
+      allow(controller).to receive(:current_user).and_call_original
+
+      get :index
+
+      expect(Recorder.store.params).to include(user_id: nil)
+      expect(controller).to have_received(:current_user).once
+    end
+  end
+
+  context 'when current_user raises NoMethodError' do
+    controller(ActionController::Base) do
+      include Recorder::Rails::ControllerConcern
+
+      def index
+        head :ok
+      end
+
+      private
+
+      def current_user
+        raise NoMethodError, 'broken current_user'
+      end
+    end
+
+    it 'lets it through after one call' do
+      allow(controller).to receive(:current_user).and_call_original
+
+      expect { get :index }.to raise_error(NoMethodError, 'broken current_user')
+      expect(controller).to have_received(:current_user).once
     end
   end
 
