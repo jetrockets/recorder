@@ -109,6 +109,38 @@ RSpec.describe Recorder::Rails::ControllerConcern, type: :controller do
     end
   end
 
+  context 'when the controller moves set_recorder_info after its own before_action' do
+    controller(ActionController::Base) do
+      include Recorder::Rails::ControllerConcern
+
+      before_action :set_tenant
+      skip_before_action :set_recorder_info
+      before_action :set_recorder_info
+
+      def index
+        head :ok
+      end
+
+      private
+
+      attr_reader :tenant
+
+      def set_tenant
+        @tenant = 'acme'
+      end
+
+      def recorder_meta
+        {tenant: tenant}
+      end
+    end
+
+    it 'still computes meta where set_recorder_meta runs' do
+      get :index
+
+      expect(Recorder.store.params[:meta]).to eq(tenant: nil)
+    end
+  end
+
   context 'when the controller skips set_recorder_meta' do
     controller(ActionController::Base) do
       include Recorder::Rails::ControllerConcern
@@ -132,7 +164,7 @@ RSpec.describe Recorder::Rails::ControllerConcern, type: :controller do
       get :index
 
       expect(controller).not_to have_received(:recorder_meta)
-      expect(Recorder.store.params).not_to have_key(:meta)
+      expect(Recorder.store.params[:meta]).to be_nil
     end
 
     it 'writes no meta on the revisions that follow' do
