@@ -321,6 +321,68 @@ such as a backfill or a data migration; inside a running app it would stop the
 trail for every request at once, so use `recorder_disabled!` there. A change is
 recorded only while both are on.
 
+### Recording other events
+
+The callbacks record creates, updates and destroys. For anything else that
+happens to a record, such as a record viewed, approved or exported, write the
+revision with `Recorder.record`:
+
+```ruby
+Recorder.record(document, event: :approve, data: {note: 'Checked against the contract'})
+```
+
+It returns the saved revision. The first argument is any saved Active Record
+object, observed or not, stored as the callbacks store it, under its
+`polymorphic_name`: `document.revisions` finds the revision on an observed
+model, and `Recorder::Revision.where(item: document)` on any. A record that was
+never saved raises `ArgumentError`. A destroyed one is accepted, as it is for
+the callbacks' own `destroy` revision.
+
+- `event:` — any non-blank String or Symbol, stored as a String. `create`,
+  `update` and `destroy` are allowed, for a change the callbacks did not see,
+  such as an `update_all`. Give such a revision `data` in the shape
+  [Reading revisions](#reading-revisions) describes, which code reading the
+  trail relies on.
+- `data:` — a Hash, stored as JSON as given, so it reads back with string keys.
+  It defaults to `{}`, which is valid for any event but `create`, `update` and
+  `destroy`. The model's `only:` and `ignore:` and `Recorder.config.ignore` do
+  not apply to it. `attributes`, `changes` and `associations` keep the meaning
+  they have in the callbacks' revisions, which `item_changeset`,
+  `changed_associations` and `association_changeset` rely on: each has to be a
+  Hash, and so do each entry under `associations` and that entry's own
+  `attributes` and `changes`. Anything else raises `ArgumentError`.
+- Any other keyword sets the column of that name, a column the app added to
+  `recorder_revisions` included. It takes the place of the request's value from
+  `Recorder.info` or the controller concern, even when it is `nil`:
+  `user_id: nil` records a system action during a user's request. A keyword
+  that is not a column raises `ArgumentError`, and so do `id`, `item_type`,
+  `item_id` and `created_at`, which Recorder writes itself.
+- `meta:` is the exception. A Hash is merged into the request's meta, its own
+  keys winning, so the request's keys stay. `meta: nil` leaves the request's
+  meta out.
+- `action_date:` takes a Date, or a Time or DateTime, whose date is taken in
+  the application's time zone. Without it, the request's date applies, or else
+  today, `Date.current`. `action_date: nil` dates the revision today.
+
+The model's `if:` and `unless:` are not checked: calling `Recorder.record` is
+the decision to record. Recording still has to be on: under
+`recorder_disabled!` or `Recorder.enabled = false` it writes nothing and returns
+`nil`. Arguments it refuses raise either way.
+
+The revision is written at once, in the database transaction open at the time,
+if there is one, and it commits or rolls back with that transaction. A change
+that rolls back leaves no revision behind, and the revision `Recorder.record`
+returned is then no longer persisted. Record an event that stands whatever
+becomes of the transaction, such as a record viewed, outside it: before it
+opens, or once it has committed.
+
+A revision that fails validation, or that a callback on `Recorder::Revision`
+halts, raises `Recorder::RevisionNotSaved`, as it does from a save. Inside a
+transaction, the error rolls the transaction back unless it is rescued.
+
+`Recorder::Tape.record`, which takes the columns as they are, is the internal
+path the callbacks write through. Use `Recorder.record` instead.
+
 ### Reading revisions
 
 Observed models get a `revisions` association:
