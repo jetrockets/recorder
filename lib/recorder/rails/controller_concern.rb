@@ -34,7 +34,8 @@ module Recorder
       end
 
       # Override this method in your controller to return a hash of any
-      # information you need.
+      # information you need, or a Proc that returns one, which Recorder calls
+      # only if the request writes a revision.
       def recorder_meta
         nil
       end

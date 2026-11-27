@@ -269,6 +269,39 @@ the before_actions ahead of that one have set. A controller that calls
 `skip_before_action :set_recorder_meta` stores no meta unless something else
 sets it, such as `Recorder.meta = {...}`.
 
+`recorder_meta` runs before the action on every request, including requests
+that write nothing. If building the hash is costly, such as a database query or
+a call to another service, return a Proc that builds it instead. Recorder calls
+the Proc when the request writes its first revision, once, and writes its value
+on that revision and every one after it. A request that writes nothing never
+calls it:
+
+```ruby
+def recorder_meta
+  user = current_user
+  -> { {plan: user&.account&.plan_name} }
+end
+```
+
+The Proc runs in the middle of the action, inside the transaction of the save
+that writes the first revision:
+
+- It sees what the action has changed by then. A user the action has just
+  signed in, or a tenant it has switched to, shows up in meta, while `user_id`
+  still holds the user from before the action. Read anything the action may
+  change outside the Proc, as `current_user` is read above.
+- An error it raises fails that save and rolls it back, along with any
+  transaction around it that does not rescue the error. Changes the action
+  committed before that save stay committed. The next revision calls the Proc
+  again.
+- The transaction, and any locks it holds, stay open while the Proc runs.
+
+A revision written from inside the Proc carries no meta. `Recorder.meta=` takes
+a Proc too, so code outside a controller can defer its meta the same way. Meta
+set outside a request, in a background job for instance, is not reliably
+cleared before the next job on the same thread, where a Proc left uncalled
+would run; set meta in each job.
+
 `revision.user` loads a `User` model. If your user model has another name,
 declare the association again in a `to_prepare` block, so that it picks up the
 reloaded class in development:

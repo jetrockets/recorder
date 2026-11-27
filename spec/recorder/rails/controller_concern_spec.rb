@@ -141,6 +141,122 @@ RSpec.describe Recorder::Rails::ControllerConcern, type: :controller do
     end
   end
 
+  context 'when recorder_meta returns a Proc' do
+    controller(ActionController::Base) do
+      include Recorder::Rails::ControllerConcern
+
+      def index
+        head :ok
+      end
+
+      def create
+        Security.create!(name: 'Facebook', identifier: 'FB').update!(name: 'Meta')
+        head :created
+      end
+
+      def tape
+        Recorder::Tape.record(item_type: 'Security', item_id: 1, event: 'create', data: {attributes: {name: 'Facebook'}})
+        head :created
+      end
+
+      private
+
+      def recorder_meta
+        -> { costly_meta }
+      end
+
+      def costly_meta
+        {locale: 'en'}
+      end
+    end
+
+    before do
+      routes.draw do
+        get 'index' => 'anonymous#index'
+        post 'create' => 'anonymous#create'
+        post 'tape' => 'anonymous#tape'
+      end
+      allow(controller).to receive(:costly_meta).and_call_original
+    end
+
+    it 'does not call it on a request that writes no revision' do
+      get :index
+
+      expect(controller).not_to have_received(:costly_meta)
+    end
+
+    it 'calls it once on a request that writes several revisions, which all carry its value' do
+      post :create
+
+      expect(controller).to have_received(:costly_meta).once
+      expect(Recorder::Revision.pluck(:meta)).to eq([{'locale' => 'en'}] * 2)
+    end
+
+    it 'writes its value on a revision written through Tape' do
+      post :tape
+
+      expect(Recorder::Revision.last.meta).to eq('locale' => 'en')
+    end
+  end
+
+  context 'when the action changes state before its first revision' do
+    controller(ActionController::Base) do
+      include Recorder::Rails::ControllerConcern
+
+      def create
+        @current_user = User.create!(name: 'Ann')
+        Security.create!(name: 'Facebook', identifier: 'FB')
+        head :created
+      end
+
+      private
+
+      attr_reader :current_user
+
+      # Reads the user before the action, and again inside the Proc.
+      def recorder_meta
+        before_action = current_user&.id
+        -> { {before_action: before_action, first_revision: current_user&.id} }
+      end
+    end
+
+    before { routes.draw { post 'create' => 'anonymous#create' } }
+
+    it 'sees it inside the Proc only' do
+      post :create
+      revision = Recorder::Revision.last
+
+      expect(revision.meta).to eq('before_action' => nil, 'first_revision' => User.last.id)
+      expect(revision.user_id).to be_nil
+    end
+  end
+
+  context 'when the Proc recorder_meta returns raises' do
+    controller(ActionController::Base) do
+      include Recorder::Rails::ControllerConcern
+
+      def create
+        User.create!(name: 'Ann')
+        Security.create!(name: 'Facebook', identifier: 'FB')
+        head :created
+      end
+
+      private
+
+      def recorder_meta
+        -> { raise KeyError, 'no meta' }
+      end
+    end
+
+    before { routes.draw { post 'create' => 'anonymous#create' } }
+
+    it 'fails the save that writes the first revision, after the action has run up to it' do
+      expect { post :create }.to raise_error(KeyError, 'no meta')
+      expect(Security.where(identifier: 'FB')).not_to exist
+      expect(User.where(name: 'Ann')).to exist
+    end
+  end
+
   context 'when the controller skips set_recorder_meta' do
     controller(ActionController::Base) do
       include Recorder::Rails::ControllerConcern
