@@ -326,6 +326,29 @@ RSpec.describe Recorder do
         expect(recorded(meta: {reason: 'Scheduled'}).meta).to eq('reason' => 'Scheduled')
       end
 
+      it 'wins over a request Symbol key when it is a String' do
+        described_class.meta = {reason: 'Requested', request_id: 'abc'}
+
+        expect(recorded(meta: {'reason' => 'Scheduled'}).meta).to eq('request_id' => 'abc', 'reason' => 'Scheduled')
+      end
+
+      # What is written, before JSON folds the two forms of a key into one.
+      {
+        [{reason: 'Requested', request_id: 'abc'}, {'reason' => 'Scheduled'}] => {request_id: 'abc', reason: 'Scheduled'},
+        [{'reason' => 'Requested', 'request_id' => 'abc'}, {reason: 'Scheduled'}] => {'request_id' => 'abc', :reason => 'Scheduled'},
+        [ActiveSupport::HashWithIndifferentAccess.new(reason: 'Requested'), {reason: nil}] => {reason: nil}
+      }.each do |(request_meta, meta), written|
+        it "writes #{written.inspect} for #{meta.inspect} over #{request_meta.inspect}" do
+          described_class.meta = request_meta
+          allow(Recorder::Tape).to receive(:write_revision).and_call_original
+
+          record(meta: meta)
+
+          # `eq`, as `hash_including` alone would match nested keys indifferently.
+          expect(Recorder::Tape).to have_received(:write_revision).with(hash_including(meta: eq(written)))
+        end
+      end
+
       it 'is written alone when the request has no meta' do
         expect(recorded(meta: {reason: 'Scheduled'}).meta).to eq('reason' => 'Scheduled')
       end

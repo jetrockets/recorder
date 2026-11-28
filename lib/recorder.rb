@@ -206,7 +206,9 @@ module Recorder
       end
     end
 
-    # Merged into the request's meta, shallowly. `nil` leaves meta out.
+    # Merged into the request's meta as Symbol keys. The request's own keys
+    # stay as they are, less the String and Symbol forms of the keys merged
+    # in. `nil` leaves meta out.
     def record_meta(meta)
       return if meta.nil?
       raise ArgumentError, "Recorder.record expects meta: as a Hash or nil, got #{meta.inspect}" unless meta.is_a?(Hash)
@@ -217,7 +219,9 @@ module Recorder
                              'which is not a Hash'
       end
 
-      request_meta.merge(meta)
+      meta = meta.symbolize_keys
+      names = meta.keys.map(&:to_s)
+      request_meta.to_h.reject { |key, _| names.include?(key.to_s) }.merge(meta)
     end
   end
 end
