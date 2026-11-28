@@ -11,6 +11,9 @@ behind the request.
 ## Requirements
 
 - PostgreSQL — revisions are stored in `jsonb` and `inet` columns
+- Observed models with a single-column primary key that
+  `recorder_revisions.item_id` can hold: an integer key by default, a UUID or a
+  string key with `--item_id_type`; see [Primary keys](#primary-keys)
 - Ruby and Rails per the table below
 
 | Rails | Supported Ruby |
@@ -45,9 +48,61 @@ The generator writes the migration but does not run it. Run it yourself:
 
     $ rails db:migrate
 
-The generator accepts one option:
+The generator accepts these options:
 
+- `--item_id_type=bigint|uuid|string` — the type of `item_id`, which holds the
+  primary keys of the observed models. Defaults to `bigint`. See
+  [Primary keys](#primary-keys).
+- `--user_id_type=bigint|uuid|string` — the type of `user_id`, which holds the
+  primary key of the user model. Defaults to `bigint`. See
+  [Recording the current user](#recording-the-current-user).
 - `--with_index_by_user_id` — adds an index on `user_id`.
+
+Any other type is rejected with an error, and nothing is written.
+
+### Primary keys
+
+A revision stores the primary key of its record in `item_id`, and `revisions`
+finds a record's revisions by it. Choose the column's type for the keys of the
+models you observe:
+
+| `--item_id_type`      | Holds primary keys that are |
+|-----------------------|-----------------------------|
+| `bigint`, the default | integers                    |
+| `uuid`                | UUIDs                       |
+| `string`              | integers, UUIDs or strings  |
+
+A `string` column suits an app that observes models with keys of more than one
+type. It stores a UUID as the record holds it, and before Rails 7.2 Active
+Record keeps a UUID assigned in capitals or in braces as it was written, where
+`revisions` of the record loaded again would not find it. A `uuid` column
+compares UUIDs by value.
+
+Before it writes a revision, Recorder checks the model's primary key against
+the column, from the callbacks and from a direct `Recorder::Tape` call alike.
+For an STI subclass that is the base class's key. A key the column cannot hold
+unchanged raises `Recorder::UnsupportedPrimaryKey` from the save, which rolls
+back, instead of writing a wrong `item_id`. So does a model with a composite
+primary key or none, since `item_id` holds a single value.
+
+To change the type of an existing table, migrate the column. Revisions written
+before hold a UUID or string key cast to an integer, but each one's snapshot
+keeps the key in `data['attributes']`, unless `only:` or `ignore:` leaves it
+out, so they can be repaired from it. With `Trade` standing for a model with a
+UUID key named `id`:
+
+```ruby
+def up
+  change_column :recorder_revisions, :item_id, :string
+  execute <<~SQL
+    UPDATE recorder_revisions SET item_id = data -> 'attributes' ->> 'id'
+    WHERE item_type IN ('Trade') AND data -> 'attributes' ? 'id'
+  SQL
+end
+```
+
+A `uuid` column takes `change_column` with a `using:` expression instead, since
+PostgreSQL does not convert integers to UUIDs.
 
 ## Usage
 
@@ -263,6 +318,12 @@ To enable storing of such data as user_id and ip, you need to include `Recorder:
 The concern reads `current_user`; override `recorder_user_id` to name a different
 method. Override `recorder_meta` to store a hash alongside every revision. A
 revision without a user is valid — `user_id` stays `nil`.
+
+`user_id` is a `bigint` unless the table was generated with `--user_id_type`.
+For a user model with UUID or string keys, generate it with `uuid` or `string`,
+or migrate the column. Recorder does not check this column against the user
+model: a value it cannot hold is cast as Active Record casts any attribute, so
+a UUID in a `bigint` column is stored as the wrong number.
 
 `revision.user` loads a `User` model. If your user model has another name,
 declare the association again in a `to_prepare` block, so that it picks up the

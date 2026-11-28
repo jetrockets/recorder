@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Support for models whose primary key is a UUID or a string.
+  `rails generate recorder:install` takes `--item_id_type` for the type of
+  `recorder_revisions.item_id`: `bigint`, the default, `uuid` or `string`. A
+  `string` column holds integer, UUID and string keys, for an app that observes
+  models with keys of more than one type. `--user_id_type` takes the same
+  values for `user_id`, for a user model whose key is not an integer. The
+  generator rejects any other value and writes nothing.
+- A README section on primary keys: the type each `item_id` column holds, and
+  how to change the column of an existing table and repair the revisions
+  written to it before.
+
+### Changed
+
+- A revision whose model has a primary key `item_id` cannot hold unchanged
+  raises `Recorder::UnsupportedPrimaryKey` from the save, which rolls back. So
+  does a model with a composite primary key or none. The check applies to the
+  callbacks and to a direct `Recorder::Tape` call, and reads the key of the
+  model `item_type` names, the base class for an STI subclass. Such revisions
+  used to be written with a wrong `item_id`, which `revisions` does not find or
+  finds under another record: a UUID or string key was cast to an integer, and
+  a composite key, a missing one, or an integer key in a `uuid` column was
+  written as `NULL`. An app that observes a model with a UUID or string key on the default
+  `bigint` column starts raising on every create, update and destroy of it
+  until it changes the column; see "Primary keys" in the README. `user_id` is
+  not checked.
+
 ## [2.0.0]
 
 ### Added
