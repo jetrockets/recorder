@@ -381,7 +381,10 @@ if there is one, and it commits or rolls back with that transaction. A change
 that rolls back leaves no revision behind, and the revision `Recorder.record`
 returned is then no longer persisted. Record an event that stands whatever
 becomes of the transaction, such as a record viewed, outside it: before it
-opens, or once it has committed.
+opens, or once it has committed. The transaction is the one on
+`Recorder::Revision`'s connection: for an item on another database, the
+revision is not written inside the item's transaction, and does not roll back
+with it.
 
 A revision that fails validation, or that a callback on `Recorder::Revision`
 halts, raises `Recorder::RevisionNotSaved`, as it does from a save. Inside a
