@@ -240,8 +240,9 @@ revision behind.
 A revision that cannot be written fails the save: it raises, and the save rolls
 back, along with any transaction around it that does not rescue the error. This
 holds for `save` and `update` as much as for `save!`, and for `destroy`. A
-revision that fails validation, or that a callback on `Recorder::Revision`
-halts, raises `Recorder::RevisionNotSaved`, a subclass of
+revision that fails validation, or that a callback on `Recorder::Revision` or
+on [your revision class](#a-revision-class-of-your-own) halts, raises
+`Recorder::RevisionNotSaved`, a subclass of
 `ActiveRecord::RecordNotSaved` whose `record` is the revision. A database error
 raises as it would from any other write.
 
@@ -275,10 +276,12 @@ Rails.application.config.to_prepare do
 end
 ```
 
-Declaring it on every reload replaces the association each time. Keep
-`optional: true`. Without it, `belongs_to_required_by_default` makes the user
-required: a change made with no user, or by a user since deleted, raises
-`Recorder::RevisionNotSaved`, and the save rolls back.
+Declaring it on every reload replaces the association each time. With
+[a revision class of your own](#a-revision-class-of-your-own), keep the block:
+the class inherits the association. Keep `optional: true`. Without it,
+`belongs_to_required_by_default` makes the user required: a change made with no
+user, or by a user since deleted, raises `Recorder::RevisionNotSaved`, and the
+save rolls back.
 
 A revision's `action_date` is today in the application's time zone,
 `Date.current`. To date revisions otherwise, such as an import replaying past
@@ -411,6 +414,95 @@ To render a changeset yourself, define `PostChangeset` — the class is looked u
 as `"#{model}Changeset"` — or point at another one with a
 `recorder_changeset_class` class method on the model. Otherwise
 `Recorder::Changeset` is used.
+
+### A revision class of your own
+
+To give revisions callbacks, validations, scopes, associations or accessors for
+columns you added, subclass `Recorder::Revision` and name the subclass in the
+application's configuration:
+
+```ruby
+# config/application.rb, in the application class
+Recorder.config.revision_class = 'Revision'
+
+# app/models/revision.rb
+class Revision < Recorder::Revision
+  after_create_commit :push_to_activity_feed
+
+  scope :by, ->(user) { where(user_id: user.id) }
+
+  private
+
+  def push_to_activity_feed
+    ActivityFeed.push(self)
+  rescue StandardError => e
+    Rails.error.report(e)
+  end
+end
+```
+
+Recorder writes every revision through the class, `Recorder::Tape` included,
+and `revisions` on an observed model returns its instances. It shares
+`recorder_revisions` with `Recorder::Revision`: both read the same rows, and
+the class name is stored nowhere. Without the setting, or with `nil`,
+revisions are `Recorder::Revision`.
+
+The setting takes the class name as a String; anything else raises
+`ArgumentError`. Recorder looks the class up each time it writes a revision and
+keeps no reference to it, so in development the class reloads like any other
+model. A name that is not `Recorder::Revision` or a concrete subclass of it
+raises `ArgumentError` from the first save that writes a revision, and the save
+rolls back. So does a subclass that would write anywhere but alongside
+`Recorder::Revision`: one with another `table_name`, one with a connection of
+its own (`establish_connection`), whose revisions would be written outside the
+save transaction, and one Active Record would treat as single-table
+inheritance, which it does when `recorder_revisions` has a `type` column; set
+`self.inheritance_column = nil` in that one. To fail at boot instead, check the
+class once the application has initialized. The check reads the table's
+columns, so it needs the database:
+
+```ruby
+# config/application.rb, in the application class
+config.after_initialize { Recorder.revision_class }
+```
+
+A model reads the setting once, when it includes `Recorder::Observer`, to
+declare `revisions`. A model loaded before the assignment keeps `revisions` on
+`Recorder::Revision`, while the revisions it writes go through your class. So
+assign the setting where it runs before any model loads: in
+`config/application.rb`, or in an initializer whose name sorts before every
+other initializer that references a model. Rails does not always stop an
+earlier initializer from loading one. On Rails 6.1 with `cache_classes` on, as
+in production and test, an initializer such as `devise.rb` that references a
+model loads it without a warning; in development Rails 6.1 warns and unloads
+it, and Rails 7.0 and later raise `NameError` instead.
+
+Active Record keeps the class `revisions` resolved for as long as the model
+lives, so keep the revision class with the observed models, in `app/models`,
+and the two reload together.
+
+The class's callbacks run in the save transaction, as the revision is written.
+A validation that fails, or a callback that halts or raises
+`ActiveRecord::RecordInvalid` or `ActiveRecord::RecordNotSaved` (from a
+`create!` of its own, say), raises `Recorder::RevisionNotSaved` from the save.
+An error from outside Active Record, such as a `RuntimeError`, comes out of the
+save as it is. Either way the save rolls back with its revision (see
+[When a revision is written](#when-a-revision-is-written)), so a callback that
+must not fail the save rescues its own errors. One with effects outside the
+database, such as a notification, belongs in `after_create_commit`, which runs
+once the save commits and never for one that rolls back. By then the record and
+its revision have committed, so an error it raises comes out of the code that
+committed without undoing either; rescue it, as the example does.
+
+Associations declared in the class are its own and reload with it.
+`Recorder::Revision` does not see them, and it reads the same rows. To load
+`user` from a model with another name, keep the `to_prepare` block in
+[Recording the current user](#recording-the-current-user): your class inherits
+the association from `Recorder::Revision`, so a revision has the same user
+whichever class reads it.
+
+Draper finds a decorator by class name: a `Revision` is decorated with
+`RevisionDecorator`, or with `Recorder::RevisionDecorator` when there is none.
 
 ## Upgrading to 2.0.0
 

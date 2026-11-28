@@ -56,7 +56,7 @@ The flow of one recorded change, in the order the code runs:
 1. **Request context** — `Recorder::Rails::ControllerConcern` adds `before_action`s that put `user_id`, `ip`, `action_date` and `meta` into `Recorder.store.params`.
 2. **Opt-in** — a model includes `Recorder::Observer` and calls `recorder(...)` once per class hierarchy, which checks the options, stores a frozen copy with symbol keys and registers `after_create`, `after_update` and `after_destroy` callbacks, conditioned on `Recorder.recording?` and the model's `if:` and `unless:`. Subclasses inherit both. Each callback builds a `Recorder::Tape` for the record.
 3. **Payload** — `Recorder::Tape::Data#data_for` builds `{attributes:, changes:, associations:}`: a snapshot of the attributes with the values last loaded or saved (`attributes` with `attributes_in_database` merged over it), the record's `saved_changes` except on destroy, and, on create and destroy, the same snapshot per recorded association.
-4. **Persist** — `Recorder::Tape::Record#record` merges the request context with the payload and creates a `Recorder::Revision`, still inside the save transaction.
+4. **Persist** — `Recorder::Tape::Record#record` merges the request context with the payload and creates a revision of `Recorder.revision_class` (`Recorder::Revision`, or the subclass `Recorder.config.revision_class` names), still inside the save transaction.
 5. **Read back** — `Recorder::Revision#item_changeset` wraps `data['changes']` in a changeset class, resolved as the model's `recorder_changeset_class`, then `"#{Model}Changeset"`, then `Recorder::Changeset`.
 
 There are two separate kinds of state:
@@ -69,6 +69,7 @@ A change is recorded only while both the process-wide `Recorder.enabled?` and th
 ## Specs
 
 - `spec/rails_helper.rb` resets the three places Recorder keeps state between examples: database rows (transactions), the `Config` singleton, and `RequestStore` plus the memoised `Recorder.store`. New state that outlives an example needs resetting there too.
+- `spec/rails_helper.rb` eager-loads the dummy app, so its models declare `revisions` under the default revision class. A spec that needs a model on another class sets `Recorder.config.revision_class` and then defines the model with `stub_const`, as `spec/recorder/revision_class_spec.rb` does.
 - To roll a save back inside an example, open `transaction(requires_new: true)` and raise `ActiveRecord::Rollback`; `spec/recorder/tape/record_spec.rb` does this.
 - Examples run in random order.
 

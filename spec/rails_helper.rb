@@ -18,6 +18,11 @@ end
 
 ActiveRecord::Migration.check_pending! if ActiveRecord::Migration.respond_to?(:check_pending!)
 
+# A model declares `revisions` with the revision class set when it loads, so
+# the dummy models load now, under the default. One first loaded inside an
+# example that sets `Recorder.config.revision_class` would keep that class.
+Rails.application.eager_load!
+
 RSpec.configure do |config|
   # Recorder holds state in three places that outlive an example: database rows,
   # the Config singleton, and the RequestStore that Store memoises. A leaked

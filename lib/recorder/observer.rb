@@ -11,8 +11,10 @@ module Recorder
     # The condition every `recorder` callback checks before the model's own.
     RECORDING = -> { Recorder.recording? }
 
+    # The class is named when the module is included and resolved by Active
+    # Record on first use.
     included do
-      has_many :revisions, class_name: '::Recorder::Revision', inverse_of: :item, as: :item
+      has_many :revisions, class_name: Recorder.revision_class_name, inverse_of: :item, as: :item
     end
 
     # A copy of the options passed to `.recorder`, which the caller may change.
