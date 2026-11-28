@@ -236,6 +236,29 @@ RSpec.describe Recorder do
         expect(params).to eq(user_id: 1, meta: {locale: 'en'})
       end
 
+      it 'restores the info when the block breaks out' do
+        described_class.info = {user_id: 1}
+
+        [1].each { described_class.with_info(user_id: 7) { break } }
+
+        expect(params).to eq(user_id: 1)
+      end
+
+      it 'restores the info when the block throws' do
+        described_class.info = {user_id: 1}
+
+        catch(:done) { described_class.with_info(user_id: 7) { throw :done } }
+
+        expect(params).to eq(user_id: 1)
+      end
+
+      it 'restores the info when the block raises an exception that is not a StandardError' do
+        described_class.info = {user_id: 1}
+
+        expect { described_class.with_info(user_id: 7) { raise NotImplementedError } }.to raise_error(NotImplementedError)
+        expect(params).to eq(user_id: 1)
+      end
+
       it 'applies info= written inside the block to the rest of the block' do
         revision =
           described_class.with_info(user_id: 7) do
