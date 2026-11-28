@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'rails_helper'
+require 'tmpdir'
 
 # `item_id` holds the record's primary key. These examples give the column the
 # types `--item_id_type` generates, and others an app may have, and save
@@ -54,6 +55,7 @@ RSpec.describe Recorder::UnsupportedPrimaryKey do
     'uuid' => [Trade],
     'character varying' => [Security, Trade, Currency],
     'text' => [Security, Trade, Currency],
+    'character(36)' => [],
     'numeric' => []
   }.each do |sql_type, fitting|
     context "when item_id is #{sql_type}" do
@@ -137,8 +139,8 @@ RSpec.describe Recorder::UnsupportedPrimaryKey do
     it 'names the model, its key type and the column' do
       expect { Trade.create!(name: 'Buy FB') }.to raise_error(
         described_class,
-        "Trade's uuid primary key does not fit recorder_revisions.item_id (bigint), so Recorder cannot write " \
-        'its revisions. See "Primary keys" in the Recorder README.'
+        "Trade's primary key id (uuid) does not fit recorder_revisions.item_id (bigint), so Recorder cannot " \
+        'write its revisions. See "Primary keys" in the Recorder README.'
       )
     end
 
@@ -162,7 +164,7 @@ RSpec.describe Recorder::UnsupportedPrimaryKey do
 
     it 'raises for an STI subclass, naming the base class' do
       expect { stub_const('BlockTrade', Class.new(Trade)).create!(name: 'Buy 10k FB') }
-        .to raise_error(described_class, /\ATrade's uuid primary key/)
+        .to raise_error(described_class, /\ATrade's primary key id \(uuid\)/)
     end
 
     it 'raises from a direct Tape call' do
@@ -181,6 +183,30 @@ RSpec.describe Recorder::UnsupportedPrimaryKey do
       Recorder.store.recorder_disabled!
 
       expect { Trade.create!(name: 'Buy FB') }.not_to change(Recorder::Revision, :count)
+    end
+  end
+
+  # The key's type is the one Active Record casts it with, which the attribute
+  # API can set.
+  describe 'a key typed through the attribute API' do
+    def model_with_key_type(type)
+      stub_const('Typed', Class.new(ApplicationRecord) do
+        self.table_name = 'securities'
+        self.inheritance_column = nil
+        include Recorder::Observer
+        attribute :id, type
+      end).tap(&:recorder)
+    end
+
+    it 'is checked by that type' do
+      expect { model_with_key_type(:string).create!(name: 'Facebook', identifier: 'FB') }.to raise_error(
+        described_class, /\ATyped's primary key id \(string\) does not fit recorder_revisions.item_id \(bigint\)/
+      )
+    end
+
+    it 'names a type without a name as a custom type' do
+      expect { model_with_key_type(Class.new(ActiveModel::Type::Value).new).create!(name: 'Facebook', identifier: 'FB') }
+        .to raise_error(described_class, /\ATyped's primary key id \(a custom type\) does not fit/)
     end
   end
 
@@ -219,14 +245,53 @@ RSpec.describe Recorder::UnsupportedPrimaryKey do
       Recorder::Tape.record(item_type: item_type, item_id: 1, event: 'create', data: {attributes: {}})
     end
 
-    %w[NoSuchModel Recorder::Config ApplicationRecord].each do |item_type|
-      it "writes #{item_type} unchecked" do
+    ['NoSuchModel', 'Recorder::NoSuchModel', 'Recorder::Config', 'ApplicationRecord', 'trade', ' Trade'].each do |item_type|
+      it "writes #{item_type.inspect} unchecked" do
         expect { record(item_type) }.to change(Recorder::Revision, :count).by(1)
       end
     end
 
+    it 'writes the name of a model without a table unchecked' do
+      stub_const('Ghost', Class.new(ApplicationRecord))
+
+      expect { record('Ghost') }.to change(Recorder::Revision, :count).by(1)
+    end
+
     it 'leaves a blank one to the validation' do
       expect { record(nil) }.to raise_error(Recorder::RevisionNotSaved, /Item type can't be blank/)
+    end
+  end
+
+  # The model's file raises while it loads, so the error is the model's, not
+  # a sign that `item_type` names nothing.
+  describe 'an item_type whose model fails to load' do
+    around do |example|
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, 'broken.rb'), body)
+        Object.autoload(:BrokenModel, File.join(dir, 'broken.rb'))
+        example.run
+      ensure
+        Object.send(:remove_const, :BrokenModel) if Object.const_defined?(:BrokenModel, false)
+      end
+    end
+
+    def record
+      Recorder::Tape.record(item_type: 'BrokenModel', item_id: SecureRandom.uuid, event: 'create', data: {attributes: {}})
+    end
+
+    {
+      'a missing constant' => ['MissingConstant::Here', NameError, /uninitialized constant BrokenModel::MissingConstant/],
+      'an undefined name' => ['undefined_macro', NameError, /undefined local variable or method .undefined_macro/],
+      'an undefined method' => ['nil.undefined_macro', NoMethodError, /undefined method .undefined_macro/]
+    }.each do |cause, (line, error, message)|
+      context "with #{cause}" do
+        let(:body) { "module BrokenModel\n  #{line}\nend\n" }
+
+        it 'raises the error and writes nothing' do
+          expect { record }.to raise_error(error, message)
+          expect(Recorder::Revision.count).to eq(0)
+        end
+      end
     end
   end
 end
