@@ -163,6 +163,25 @@ RSpec.describe Recorder do
       it 'raises when it is not an Active Record object' do
         expect { record(Object.new) }.to raise_error(ArgumentError, /expects an Active Record object/)
       end
+
+      # The dummy's `item_id` is a bigint, which would store this id as
+      # 12345678. The table is created inside the example's transaction, so
+      # it goes when that rolls back.
+      it 'raises, writing nothing, when the item_id column cannot hold its id' do
+        ActiveRecord::Base.connection.create_table(:uuid_things, id: :uuid) { |t| t.string :name }
+        model = stub_const('UuidThing', Class.new(ApplicationRecord) { self.table_name = 'uuid_things' })
+        thing = model.create!(id: '12345678-0000-4000-8000-000000000001', name: 'Facebook')
+
+        expect { record(thing) }
+          .to raise_error(ArgumentError, /cannot record UuidThing "12345678-0000-4000-8000-000000000001": .* as 12345678\z/)
+        expect(Recorder::Revision.where(item_type: 'UuidThing')).not_to exist
+      end
+
+      it 'raises when its id is composite' do
+        allow(security).to receive(:id).and_return([security.read_attribute(:id), 2])
+
+        expect { record }.to raise_error(ArgumentError, /would store its id as nil/)
+      end
     end
 
     describe 'the event' do

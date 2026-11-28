@@ -335,8 +335,11 @@ It returns the saved revision. The first argument is any saved Active Record
 object, observed or not, stored as the callbacks store it, under its
 `polymorphic_name`: `document.revisions` finds the revision on an observed
 model, and `Recorder::Revision.where(item: document)` on any. A record that was
-never saved raises `ArgumentError`. A destroyed one is accepted, as it is for
-the callbacks' own `destroy` revision.
+never saved raises `ArgumentError`, and so does a record whose id the
+`item_id` column would store as another value, which would file the revision
+under another record: with the default `bigint` column, a UUID or a composite
+id. A destroyed record is accepted, as it is for the callbacks' own `destroy`
+revision.
 
 - `event:` — any non-blank String or Symbol, stored as a String. `create`,
   `update` and `destroy` are allowed, for a change the callbacks did not see,

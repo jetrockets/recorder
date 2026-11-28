@@ -84,15 +84,16 @@ module Recorder
     # @param data [Hash]
     # @return [Recorder::Revision, nil] the saved revision, or `nil` while
     #   recording is off
-    # @raise [ArgumentError] for a record that was never saved, a blank event,
-    #   `data` or `meta:` of the wrong type, an `action_date:` that is not a
-    #   date or time, and a keyword that is not a column or names one Recorder
-    #   writes itself
+    # @raise [ArgumentError] for a record that was never saved or whose id the
+    #   `item_id` column cannot hold, a blank event, `data` or `meta:` of the
+    #   wrong type, an `action_date:` that is not a date or time, and a keyword
+    #   that is not a column or names one Recorder writes itself
     # @raise [Recorder::RevisionNotSaved] if the revision fails validation or
     #   a callback halts it
     # @api public
     def record(item, event:, data: {}, **columns)
-      check_item(item)
+      revision_columns = Recorder::Tape.revision_columns
+      check_item(item, revision_columns.fetch('item_id'))
       check_event(event)
       check_data(data, 'data', DATA_KEYS)
 
@@ -100,7 +101,7 @@ module Recorder
         **Recorder::Tape.item_columns(item),
         event: event.to_s,
         data: data,
-        **record_columns(columns, Recorder::Tape.revision_columns.keys)
+        **record_columns(columns, revision_columns.keys)
       )
     end
 
@@ -125,11 +126,18 @@ module Recorder
 
     private
 
-    def check_item(item)
+    # An id the `item_id` column would store as another value, such as a UUID
+    # in a bigint column, would file the revision under another record. The
+    # two are compared as text, so an Integer id fits a string column.
+    def check_item(item, item_id_type)
       raise ArgumentError, "Recorder.record expects an Active Record object, got #{item.inspect}" unless item.is_a?(ActiveRecord::Base)
-      return unless item.new_record? || item.id.nil?
+      raise ArgumentError, "Recorder.record expects a saved record with an id, got #{item.inspect}" if item.new_record? || item.id.nil?
 
-      raise ArgumentError, "Recorder.record expects a saved record with an id, got #{item.inspect}"
+      stored = item_id_type.cast(item.id)
+      return if stored.to_s == item.id.to_s
+
+      raise ArgumentError, "Recorder.record cannot record #{item.class} #{item.id.inspect}: the item_id column " \
+                           "would store its id as #{stored.inspect}"
     end
 
     def check_event(event)
