@@ -137,6 +137,18 @@ RSpec.describe Recorder, '.revision_class' do
       end
     end
 
+    # As the README's `to_prepare` block declares it, restored afterwards.
+    it 'inherits a user association declared again on Recorder::Revision' do
+      account = stub_const('Account', Class.new(ApplicationRecord) { self.table_name = 'users' })
+      Recorder::Revision.belongs_to :user, class_name: 'Account', optional: true
+      described_class.info = {user_id: User.create!(name: 'Igor').id}
+      create_security
+
+      expect([revision_class.last.user, Recorder::Revision.last.user].map(&:class)).to eq([account, account])
+    ensure
+      Recorder::Revision.belongs_to :user, optional: true
+    end
+
     it 'sets the item of the revisions has_many loads, without a query' do
       record = observed_model.create!(name: 'Facebook', identifier: 'FB')
       revision = record.class.find(record.id).revisions.first
@@ -319,6 +331,28 @@ RSpec.describe Recorder, '.revision_class' do
 
       expect { create_security }.to raise_error(Recorder::RevisionNotSaved, /User can't be blank/)
       expect(Security.where(identifier: 'FB')).not_to exist
+    end
+
+    it 'fail the save with Recorder::RevisionNotSaved when a create! of their own is invalid' do
+      note = stub_const('Note', Class.new(ApplicationRecord) do
+        self.table_name = 'users'
+        validates :name, presence: true
+      end)
+      define_revision_class { after_create { note.create! } }
+
+      expect { create_security }.to raise_error(Recorder::RevisionNotSaved, /Name can't be blank/)
+      expect(Security.where(identifier: 'FB')).not_to exist
+    end
+
+    it 'raise the error of an after_commit callback once the record and its revision have committed' do
+      define_revision_class { after_create_commit { raise 'feed is down' } }
+
+      expect { ActiveRecord::Base.transaction(requires_new: true) { create_security } }
+        .to raise_error(RuntimeError, 'feed is down')
+      aggregate_failures do
+        expect(Security.where(identifier: 'FB')).to exist
+        expect(AppRevision.count).to eq(1)
+      end
     end
 
     it 'fail the save with the error one raises' do

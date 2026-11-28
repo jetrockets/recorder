@@ -69,6 +69,7 @@ A change is recorded only while both the process-wide `Recorder.enabled?` and th
 ## Specs
 
 - `spec/rails_helper.rb` resets the three places Recorder keeps state between examples: database rows (transactions), the `Config` singleton, and `RequestStore` plus the memoised `Recorder.store`. New state that outlives an example needs resetting there too.
+- `spec/rails_helper.rb` eager-loads the dummy app, so its models declare `revisions` under the default revision class. A spec that needs a model on another class sets `Recorder.config.revision_class` and then defines the model with `stub_const`, as `spec/recorder/revision_class_spec.rb` does.
 - To roll a save back inside an example, open `transaction(requires_new: true)` and raise `ActiveRecord::Rollback`; `spec/recorder/tape/record_spec.rb` does this.
 - Examples run in random order.
 

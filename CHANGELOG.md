@@ -16,11 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `recorder_revisions`, so `Recorder::Revision` reads the same rows, and its
   name is never stored. Recorder looks the class up on every write, so a
   reloaded class is picked up; a model reads the setting when it includes
-  `Recorder::Observer` to declare `revisions`, so assign it in an initializer.
-  Assigning anything but a String or `nil` raises `ArgumentError`, and so does
-  the first save that writes a revision under a name that is not
-  `Recorder::Revision` or a subclass of it, or under a class Active Record
-  would treat as single-table inheritance. Without the setting nothing changes.
+  `Recorder::Observer` to declare `revisions`, so assign it before any model
+  loads, in `config/application.rb` or the first initializer. Assigning
+  anything but a String or `nil` raises `ArgumentError`, and so does the first
+  save that writes a revision under a name that is not `Recorder::Revision` or
+  a concrete subclass of it, or under a subclass with another table, a
+  connection of its own, or single-table inheritance. `Recorder.revision_class`
+  returns the class after the same checks, so calling it from
+  `config.after_initialize` fails at boot instead. Without the setting nothing
+  changes.
 
 ## [2.0.0]
 
