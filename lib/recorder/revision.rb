@@ -86,4 +86,8 @@ module Recorder
   # Raised from the save of an observed record when its revision fails
   # validation or a callback halts it. `record` is the revision.
   class RevisionNotSaved < ActiveRecord::RecordNotSaved; end
+
+  # Raised from the save of a record whose primary key `item_id` cannot hold
+  # unchanged, or that has no single-column primary key.
+  class UnsupportedPrimaryKey < ActiveRecord::ActiveRecordError; end
 end
