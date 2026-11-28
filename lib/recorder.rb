@@ -77,6 +77,36 @@ module Recorder
       @store ||= Recorder::Store.new
     end
 
+    # The absolute name of the revision class, from
+    # `Recorder.config.revision_class`, without looking the constant up.
+    # @api private
+    def revision_class_name
+      name = config.revision_class
+      name ? "::#{name.delete_prefix("::")}" : '::Recorder::Revision'
+    end
+
+    # The revision class, looked up on every call and never kept, so a class
+    # that was reloaded is the one returned.
+    # @raise [ArgumentError] if `Recorder.config.revision_class` names
+    #   something other than `Recorder::Revision` or a subclass of it, or a
+    #   subclass Active Record would treat as single-table inheritance
+    # @api private
+    def revision_class
+      return Recorder::Revision unless config.revision_class
+
+      klass = revision_class_name.safe_constantize
+      unless klass.is_a?(Class) && klass <= Recorder::Revision
+        raise ArgumentError, 'Recorder.config.revision_class must name Recorder::Revision or a subclass of it, ' \
+                             "got #{config.revision_class.inspect}"
+      end
+      unless klass.descends_from_active_record?
+        raise ArgumentError, "#{klass.name} would store its name in the `#{klass.inheritance_column}` column of " \
+                             "#{klass.table_name} and filter by it. Set `self.inheritance_column = nil` in #{klass.name}."
+      end
+
+      klass
+    end
+
     # Returns version of Recorder as +String+
     def version
       VERSION

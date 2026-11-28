@@ -6,7 +6,7 @@ module Recorder
       def record(params)
         return unless Recorder.recording?
 
-        revision = Recorder::Revision.new(params_for(params))
+        revision = Recorder.revision_class.new(params_for(params))
         revision.save!
       # The failure of a revision written from a callback on this one comes
       # through as it is.
