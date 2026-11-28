@@ -35,8 +35,9 @@ jobs:
           - {ruby: '3.0', rails: '8.1'}
           - {ruby: '3.1', rails: '8.1'}
         include:
-          # lib/ has no Ruby- or Rails-specific branches, so one cell's
-          # coverage stands for the whole matrix.
+          # lib/'s one Ruby-specific branch, Store's fallback for Ruby < 3.2,
+          # is excluded from coverage and runs in the 3.0 and 3.1 cells.
+          # Otherwise one cell's coverage stands for the whole matrix.
           - {ruby: '3.4', rails: '8.1', coverage: true}
 
     services:

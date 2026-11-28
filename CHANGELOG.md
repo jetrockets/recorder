@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- On Ruby 3.2 and later, `recorder_disabled!` and the request info reach the
+  fibers started from the fiber that set them: a new `Fiber`, an
+  `Enumerator#next` body, and a task under a fiber scheduler such as Falcon or
+  `async`. Such a fiber used to start with recording on and without the
+  request info, so it wrote revisions inside a `recorder_disabled!` block, and
+  its revisions had no `user_id`, `ip` or `meta`. A fiber keeps the switch it
+  was started with, after the block too, and copies the info the first time it
+  uses Recorder, so what it changes stays in it. A new thread still starts with
+  recording on and no info, and Ruby 3.0 and 3.1 are unchanged. Whatever
+  clears RequestStore, such as its middleware at the end of a request, still
+  clears this state, and a fiber started afterwards does not inherit it.
+
 ## [2.0.0]
 
 ### Added

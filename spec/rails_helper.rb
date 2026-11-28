@@ -30,7 +30,7 @@ RSpec.configure do |config|
   config.use_transactional_fixtures = true
 
   config.before do
-    RequestStore.clear!
+    RequestStore.clear! # Store drops what this fiber passes on to new fibers with it
     Recorder::Config.instance.reset
     Recorder.instance_variable_set(:@store, nil) # Store memoises the wrapper
   end
