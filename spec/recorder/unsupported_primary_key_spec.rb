@@ -128,6 +128,30 @@ RSpec.describe Recorder::UnsupportedPrimaryKey do
   describe 'when item_id is character varying' do
     let(:item_id_type) { 'character varying' }
 
+    # Rails before 7.2 keeps a UUID as it was assigned; the database returns
+    # it lowercase and hyphenated.
+    {
+      'capitals' => 'ABCDEF00-0000-4000-8000-00000000000A',
+      'braces' => '{abcdef00-0000-4000-8000-00000000000a}',
+      'no hyphens' => 'abcdef0000004000800000000000000a'
+    }.each do |form, id|
+      it "stores a UUID assigned in #{form} as the database returns it" do
+        Trade.create!(id: id, name: 'Buy FB')
+
+        aggregate_failures do
+          expect(Recorder::Revision.last.item_id).to eq('abcdef00-0000-4000-8000-00000000000a')
+          expect(Trade.find(id).revisions.pluck(:event)).to eq(['create'])
+          expect(Trade.includes(:revisions).map { |trade| trade.revisions.size }).to eq([1])
+        end
+      end
+    end
+
+    it 'leaves an item_id that is not a UUID as it is given' do
+      Recorder::Tape.record(item_type: 'Trade', item_id: 'not-a-uuid', event: 'create', data: {attributes: {}})
+
+      expect(Recorder::Revision.last.item_id).to eq('not-a-uuid')
+    end
+
     it 'preloads the revisions of integer-keyed records' do
       security = Security.create!(name: 'Facebook', identifier: 'FB')
 
