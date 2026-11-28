@@ -62,7 +62,7 @@ The flow of one recorded change, in the order the code runs:
 There are two separate kinds of state:
 
 - `Recorder.config` is a process-wide singleton holding global settings.
-- `Recorder.store` wraps `RequestStore`, so it is per-request: the request params from step 1 and the flag `Recorder::Manager` toggles. `RequestStore` keeps it in `Thread.current[]`, which is fiber-local, so a new fiber starts without it. `RequestStore`'s Rack middleware clears it after each request; outside a request, in a background job for instance, nothing reliably does, so it lasts as long as the thread.
+- `Recorder.store` wraps `RequestStore`, so it is per-request: the request params from step 1 and the flag `Recorder::Manager` toggles. `RequestStore` keeps it in `Thread.current[]`, which is fiber-local, so each fiber holds its own. On Ruby 3.2+, a fiber that has none starts from the fiber that created it, through inheritable fiber storage (`Fiber[]`): the flag as it was when the fiber was created, and a copy of the params taken at its first use. A thread never inherits it, because a pooled thread outlives the request that spawned it. On Ruby 3.0 and 3.1 a new fiber starts without it. `RequestStore`'s Rack middleware clears it after each request, and `Store` hooks `RequestStore.clear!` and `RequestStore.store=` so that what a fiber passes on is cleared with it; outside a request, in a background job for instance, nothing reliably does, so it lasts as long as the thread.
 
 A change is recorded only while both the process-wide `Recorder.enabled?` and the per-request flag are on. Code that decides whether to record calls `Recorder.recording?`, never one of the flags alone.
 

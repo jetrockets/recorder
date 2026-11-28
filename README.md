@@ -251,7 +251,7 @@ without its revision. Let the error propagate, or re-raise it.
 
 ### Recording the current user
 
-To enable storing of such data as user_id and ip, you need to include `Recorder::Rails::ControllerConcern` to `ApplicationController`. Recorder uses [request_store](https://github.com/steveklabnik/request_store) to safely store these data on a thread level.
+To enable storing of such data as user_id and ip, you need to include `Recorder::Rails::ControllerConcern` to `ApplicationController`. Recorder keeps these data per request with [request_store](https://github.com/steveklabnik/request_store); [Fibers and threads](#fibers-and-threads) says which code they reach.
 
 ``` ruby
   class ApplicationController < ActionController::Base
@@ -320,6 +320,39 @@ thread included, until `Recorder.enabled = true`. It suits a one-off script,
 such as a backfill or a data migration; inside a running app it would stop the
 trail for every request at once, so use `recorder_disabled!` there. A change is
 recorded only while both are on.
+
+### Fibers and threads
+
+The request info and the `recorder_disabled!` switch belong to the fiber that
+set them. On Ruby 3.2 and later, a fiber started from it carries them on,
+through Ruby's inheritable fiber storage: a new `Fiber`, the body of an
+`Enumerator` advanced with `next`, and a task under a fiber scheduler, such as
+Falcon's or the `async` gem's.
+
+- A fiber keeps the switch it was started with. One started inside a
+  `recorder_disabled!` block records nothing, even when it runs after the
+  block; one started before the block records, even when it is resumed inside
+  it. An `Enumerator` starts its fiber at the first `next`.
+- A fiber takes a copy of the request info the first time it uses Recorder,
+  such as by saving an observed record. Changes made afterwards in the fiber
+  that started it do not reach it.
+- What a fiber changes stays in it: `recorder_disabled!` or `Recorder.info =`
+  in a task leaves the request and the other tasks as they were.
+- A fiber started during a request keeps that request's info and switch for as
+  long as it runs, after the request has ended too.
+
+A new thread carries neither on, on any Ruby: it starts with recording on and
+no request info. A thread that a pool starts during a request goes on to run
+unrelated work, which must not be attributed to that request's user, or go
+unrecorded because the request had recording off. Set `Recorder.info` and call
+`recorder_disabled!` inside a thread you start, if it needs them.
+
+Whatever clears RequestStore clears this state too, such as its middleware at
+the end of a request or `RequestStore.clear!` in a job wrapper, and a fiber
+started afterwards does not inherit it.
+
+On Ruby 3.0 and 3.1, a new fiber starts like a new thread; see
+[Known issues](#known-issues).
 
 ### Reading revisions
 
@@ -500,10 +533,12 @@ Review what reads the trail:
 
 The gem is under active maintenance and these defects are known:
 
-- `recorder_disabled!` reaches only the current fiber, not the whole thread:
-  `RequestStore` keeps its state in fiber-local storage. Code that runs in
-  another fiber inside the block, such as an `Enumerator#next` body or a task
-  under a fiber scheduler, is recorded.
+- On Ruby 3.0 and 3.1, `recorder_disabled!` and the request info reach only
+  the current fiber, not the fibers it starts: inheritable fiber storage
+  arrived in Ruby 3.2. Code that runs in another fiber, such as an
+  `Enumerator#next` body or a task under a fiber scheduler, is recorded inside
+  a `recorder_disabled!` block, and its revisions carry no `user_id`, `ip` or
+  `meta`. See [Fibers and threads](#fibers-and-threads) for Ruby 3.2 and later.
 
 ## Development
 
