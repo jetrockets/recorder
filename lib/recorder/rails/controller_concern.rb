@@ -13,16 +13,16 @@ module Recorder
       protected
 
       # Returns the user who is responsible for any changes that occur.
-      # By default this calls `current_user` and returns the result.
+      # By default this calls `current_user` and returns its `id` when it
+      # responds to `id`, or the value itself otherwise, such as an id or nil.
       #
       # Override this method in your controller to call a different
       # method, e.g. `current_person`, or anything you like.
       def recorder_user_id
         return unless defined?(current_user)
 
-        current_user.try!(:id)
-      rescue NoMethodError
-        current_user
+        user = current_user
+        user.respond_to?(:id) ? user.id : user
       end
 
       def recorder_info
