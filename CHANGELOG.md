@@ -20,11 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `recorder_revisions`, or that names a column Recorder writes itself, raises
   `ArgumentError`, and so do a record that was never saved, a record whose id
   the `item_id` column would store as another value (a UUID or a composite id
-  in the default `bigint` column), a blank event, and `data` whose
-  `attributes`, `changes` or `associations` is not a Hash. It
-  writes nothing and returns `nil` while recording is off, does not check the
-  model's `if:` and `unless:`, and raises `Recorder::RevisionNotSaved` for a
-  revision that fails validation.
+  in the default `bigint` column), a blank event, `data` whose `attributes`,
+  `changes` or `associations` is not a Hash, and a `create`, `update` or
+  `destroy` revision without `attributes`, the snapshot that replaying a
+  record's history reads. It writes nothing and returns `nil` while recording
+  is off, does not check the model's `if:` and `unless:`, and raises
+  `Recorder::RevisionNotSaved` for a revision that fails validation.
 
 ### Changed
 

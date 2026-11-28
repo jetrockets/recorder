@@ -9,14 +9,11 @@ module Recorder
     belongs_to :item, polymorphic: true, inverse_of: :revisions, optional: true
     belongs_to :user, optional: true
 
-    # The events the callbacks write, whose `data` always holds a snapshot.
-    TAPE_EVENTS = %w[create update destroy].freeze
-
     validates :item_type, presence: true
     validates :event, presence: true
     validates :action_date, presence: true
-    # An event an app records itself may carry an empty Hash.
-    validates :data, presence: true, unless: -> { data == {} && TAPE_EVENTS.exclude?(event) }
+    # An event other than those the callbacks write may carry an empty Hash.
+    validates :data, presence: true, unless: -> { data == {} && Recorder::Tape::EVENTS.exclude?(event) }
 
     # Newest first. Revisions written in the same instant fall back to the
     # order they were inserted in.

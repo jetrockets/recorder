@@ -9,6 +9,10 @@ module Recorder
   class Tape
     extend Record
 
+    # The events the callbacks write, each revision with a snapshot.
+    # @api private
+    EVENTS = %w[create update destroy].freeze
+
     attr_reader :item, :data
 
     def initialize(item)

@@ -226,14 +226,33 @@ RSpec.describe Recorder do
         end
       end
 
-      %w[create update destroy].each do |event|
-        it "may not be empty for #{event}, as the callbacks' never is" do
-          expect { record(event: event) }.to raise_error(Recorder::RevisionNotSaved, /Data can't be blank/)
+      # Replaying a record's history reads the snapshot of each of these.
+      [:create, :update, :destroy, 'update'].each do |event|
+        [{}, {changes: {name: %w[Facebook Meta]}}, {note: 'Imported'}].each do |data|
+          it "raises for #{event.inspect} without attributes in #{data.inspect}" do
+            expect { record(event: event, data: data) }
+              .to raise_error(ArgumentError, /expects data\[:attributes\], a snapshot of the record, for #{event}\z/)
+          end
         end
       end
 
+      it 'takes the attributes of an update under a String key' do
+        data = {'attributes' => {'name' => 'Meta'}, 'changes' => {'name' => %w[Facebook Meta]}}
+
+        expect(recorded(event: :update, data: data).data['attributes']).to eq('name' => 'Meta')
+      end
+
+      it 'writes nothing for an update without attributes' do
+        security
+
+        expect { record(event: :update, data: {changes: {name: %w[Facebook Meta]}}) }
+          .to raise_error(ArgumentError)
+        expect(security.revisions.pluck(:event)).to eq(%w[create])
+      end
+
       it 'reads changes back as a changeset' do
-        changeset = recorded(event: :update, data: {changes: {name: %w[Facebook Meta]}}).item_changeset
+        data = {attributes: {name: 'Meta'}, changes: {name: %w[Facebook Meta]}}
+        changeset = recorded(event: :update, data: data).item_changeset
 
         expect([changeset.previous(:name), changeset.next(:name)]).to eq(%w[Facebook Meta])
       end
@@ -445,7 +464,11 @@ RSpec.describe Recorder do
     end
 
     it 'raises RevisionNotSaved, carrying the revision, when the revision fails validation' do
-      expect { record(event: :create) }.to raise_error(Recorder::RevisionNotSaved) do |error|
+      allow(Recorder::Revision).to receive(:new).and_wrap_original do |original, *args|
+        original.call(*args).tap { |revision| revision.action_date = nil }
+      end
+
+      expect { record }.to raise_error(Recorder::RevisionNotSaved, /Action date can't be blank/) do |error|
         expect(error.record).to be_a(Recorder::Revision)
       end
     end

@@ -74,8 +74,9 @@ module Recorder
     # as a record viewed, approved or exported, in the database transaction
     # open at the time. The model's `if:` and `unless:` are not checked.
     #
-    # `data` is stored as given. Every other keyword sets the column of that
-    # name over the request's value, `nil` included, except `meta:`, whose
+    # `data` is stored as given, and a create, update or destroy revision
+    # needs its `attributes` snapshot. Every other keyword sets the column of
+    # that name over the request's value, `nil` included, except `meta:`, whose
     # Hash is merged into the request's meta. `action_date:` takes a Date,
     # Time or DateTime and stores its date in the application's time zone.
     #
@@ -86,8 +87,9 @@ module Recorder
     #   recording is off
     # @raise [ArgumentError] for a record that was never saved or whose id the
     #   `item_id` column cannot hold, a blank event, `data` or `meta:` of the
-    #   wrong type, an `action_date:` that is not a date or time, and a keyword
-    #   that is not a column or names one Recorder writes itself
+    #   wrong type, a create, update or destroy without `data[:attributes]`, an
+    #   `action_date:` that is not a date or time, and a keyword that is not a
+    #   column or names one Recorder writes itself
     # @raise [Recorder::RevisionNotSaved] if the revision fails validation or
     #   a callback halts it
     # @api public
@@ -96,6 +98,7 @@ module Recorder
       check_item(item, revision_columns.fetch('item_id'))
       check_event(event)
       check_data(data, 'data', DATA_KEYS)
+      check_snapshot(data, event)
 
       Recorder::Tape.write_revision(
         **Recorder::Tape.item_columns(item),
@@ -161,6 +164,14 @@ module Recorder
           check_data(entry, "#{name}[#{key.inspect}][#{association.inspect}]", ASSOCIATION_DATA_KEYS)
         end
       end
+    end
+
+    # Replay reads the snapshot of the events the callbacks write.
+    def check_snapshot(data, event)
+      return unless Recorder::Tape::EVENTS.include?(event.to_s)
+      return if data.keys.any? { |key| key.to_s == 'attributes' }
+
+      raise ArgumentError, "Recorder.record expects data[:attributes], a snapshot of the record, for #{event}"
     end
 
     # Symbolizes the keys. `action_date` and `meta` are converted only when

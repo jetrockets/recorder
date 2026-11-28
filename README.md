@@ -343,9 +343,13 @@ revision.
 
 - `event:` — any non-blank String or Symbol, stored as a String. `create`,
   `update` and `destroy` are allowed, for a change the callbacks did not see,
-  such as an `update_all`. Give such a revision `data` in the shape
-  [Reading revisions](#reading-revisions) describes, which code reading the
-  trail relies on.
+  such as an `update_all`. Code that replays a record's history reads such a
+  revision's snapshot, so its `data` needs `attributes`, built as the callbacks
+  build it: the record's attributes after the change (reload it after an
+  `update_all`), less what the model's `only:` or `ignore:` leaves out, plus
+  the `changes` as `name => [old, new]`. Without `attributes`,
+  `Recorder.record` raises `ArgumentError`. See
+  [Reading revisions](#reading-revisions) for the shape.
 - `data:` — a Hash, stored as JSON as given, so it reads back with string keys.
   It defaults to `{}`, which is valid for any event but `create`, `update` and
   `destroy`. The model's `only:` and `ignore:` and `Recorder.config.ignore` do
@@ -399,8 +403,8 @@ revision.user_id
 revision.action_date
 ```
 
-`data` carries a complete attribute snapshot on every event, not only what
-changed:
+On `create`, `update` and `destroy`, `data` carries a complete attribute
+snapshot, not only what changed:
 
 - `attributes` — every attribute of the record, with the values it last loaded
   from or saved to the database, filtered by the model's `only:` or `ignore:`
@@ -425,6 +429,15 @@ revision's `attributes` are self-contained, so reconstructing a record at a
 point in time does not mean replaying every prior diff. It is also what keeps a
 `destroy` revision useful, since the row it describes is gone. Association
 snapshots exist only on `create` and `destroy` revisions.
+
+A revision of any other event, which an app writes with
+[`Recorder.record`](#recording-other-events), carries the `data` the app gave
+it, with or without `attributes`. Code that replays a record's history, or
+reads its latest snapshot, filters by event:
+
+```ruby
+post.revisions.where(event: %w[create update destroy]).ordered_by_created_at.first
+```
 
 An `update` records a revision only when the record reports a change; `create`
 and `destroy` always record one.
