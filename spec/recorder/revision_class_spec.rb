@@ -207,37 +207,73 @@ RSpec.describe Recorder, '.revision_class' do
         described_class.config.revision_class = name
 
         expect { create_security }.to raise_error(
-          ArgumentError, "Recorder.config.revision_class must name Recorder::Revision or a subclass of it, got #{name.inspect}"
+          ArgumentError,
+          "Recorder.config.revision_class must name Recorder::Revision or a concrete subclass of it, got #{name.inspect}"
         )
         expect(Security.where(identifier: 'FB')).not_to exist
       end
     end
 
+    it 'fails the save for an abstract subclass' do
+      define_revision_class('AbstractRevision') { self.abstract_class = true }
+      described_class.config.revision_class = 'AbstractRevision'
+
+      expect { create_security }.to raise_error(ArgumentError, /concrete subclass of it, got "AbstractRevision"/)
+      expect(Security.where(identifier: 'FB')).not_to exist
+    end
+
+    it 'fails the save for a subclass with a table of its own' do
+      define_revision_class { self.table_name = 'other_revisions' }
+      described_class.config.revision_class = 'AppRevision'
+
+      expect { create_security }.to raise_error(
+        ArgumentError, /AppRevision cannot hold revisions: it uses the table other_revisions.*has to use recorder_revisions/
+      )
+      expect(Security.where(identifier: 'FB')).not_to exist
+    end
+
+    it 'fails the save for a subclass with a connection of its own, writing nothing' do
+      revision_class = define_revision_class
+      revision_class.establish_connection(ActiveRecord::Base.connection_db_config.configuration_hash)
+      described_class.config.revision_class = 'AppRevision'
+
+      expect { create_security }.to raise_error(
+        ArgumentError, /AppRevision cannot hold revisions: it has a connection of its own.*outside the save transaction/
+      )
+      aggregate_failures do
+        expect(Security.where(identifier: 'FB')).not_to exist
+        expect(revision_class.count).to eq(0)
+      end
+    ensure
+      revision_class&.remove_connection
+    end
+
     context 'when Active Record would treat the class as single-table inheritance' do
-      # A copy of recorder_revisions with a `type` column, which only this
-      # example sees.
+      # A `type` column on recorder_revisions, removed again whatever the
+      # example does, so no later example sees it in the column cache.
       before do
-        ActiveRecord::Base.connection.execute(<<~SQL)
-          CREATE TEMPORARY TABLE typed_revisions (LIKE recorder_revisions INCLUDING ALL, type varchar)
-        SQL
+        ActiveRecord::Base.connection.add_column :recorder_revisions, :type, :string
+        Recorder::Revision.reset_column_information
         described_class.config.revision_class = 'AppRevision'
       end
 
+      after do
+        ActiveRecord::Base.connection.remove_column :recorder_revisions, :type, if_exists: true
+        Recorder::Revision.reset_column_information
+      end
+
       it 'fails the save, saying how to turn it off' do
-        define_revision_class { self.table_name = 'typed_revisions' }
+        define_revision_class
 
         expect { create_security }.to raise_error(
-          ArgumentError, /AppRevision would store its name in the `type` column of typed_revisions.*inheritance_column = nil/
+          ArgumentError,
+          /AppRevision cannot hold revisions: it would store its name in the `type` column of recorder_revisions.*inheritance_column = nil/
         )
         expect(Security.where(identifier: 'FB')).not_to exist
       end
 
       it 'accepts the class once inheritance is off' do
-        revision_class =
-          define_revision_class do
-            self.table_name = 'typed_revisions'
-            self.inheritance_column = nil
-          end
+        revision_class = define_revision_class { self.inheritance_column = nil }
 
         create_security
 

@@ -88,21 +88,21 @@ module Recorder
     # The revision class, looked up on every call and never kept, so a class
     # that was reloaded is the one returned.
     # @raise [ArgumentError] if `Recorder.config.revision_class` names
-    #   something other than `Recorder::Revision` or a subclass of it, or a
-    #   subclass Active Record would treat as single-table inheritance
-    # @api private
+    #   something other than `Recorder::Revision` or a concrete subclass of it
+    #   that writes to its table, on its connection, without single-table
+    #   inheritance
+    # @api public
     def revision_class
       return Recorder::Revision unless config.revision_class
 
       klass = revision_class_name.safe_constantize
-      unless klass.is_a?(Class) && klass <= Recorder::Revision
-        raise ArgumentError, 'Recorder.config.revision_class must name Recorder::Revision or a subclass of it, ' \
-                             "got #{config.revision_class.inspect}"
+      unless klass.is_a?(Class) && klass <= Recorder::Revision && !klass.abstract_class?
+        raise ArgumentError, 'Recorder.config.revision_class must name Recorder::Revision or a concrete subclass of ' \
+                             "it, got #{config.revision_class.inspect}"
       end
-      unless klass.descends_from_active_record?
-        raise ArgumentError, "#{klass.name} would store its name in the `#{klass.inheritance_column}` column of " \
-                             "#{klass.table_name} and filter by it. Set `self.inheritance_column = nil` in #{klass.name}."
-      end
+
+      problem = revision_class_problem(klass)
+      raise ArgumentError, "#{klass.name} cannot hold revisions: #{problem}" if problem
 
       klass
     end
@@ -110,6 +110,23 @@ module Recorder
     # Returns version of Recorder as +String+
     def version
       VERSION
+    end
+
+    private
+
+    # What keeps a subclass from sharing the rows of `Recorder::Revision` and
+    # being written in the save transaction, or nil.
+    def revision_class_problem(klass)
+      base = Recorder::Revision
+
+      if klass.connection_specification_name != base.connection_specification_name
+        'it has a connection of its own, so its revisions would be written outside the save transaction'
+      elsif klass.table_name != base.table_name
+        "it uses the table #{klass.table_name}, where Recorder::Revision does not read; it has to use #{base.table_name}"
+      elsif !klass.descends_from_active_record?
+        "it would store its name in the `#{klass.inheritance_column}` column of #{klass.table_name} and filter " \
+          "by it. Set `self.inheritance_column = nil` in #{klass.name}"
+      end
     end
   end
 end
