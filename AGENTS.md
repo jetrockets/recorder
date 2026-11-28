@@ -43,7 +43,7 @@ CI runs the suite across a Ruby × Rails matrix (`.github/workflows/ci.yml`) plu
 ## Structure
 
 - `lib/recorder.rb` — entry point; requires everything else and defines the top-level `Recorder` API.
-- `lib/recorder/` — the library: `Observer`, `Tape` (with `Tape::Data` and `Tape::Record`), `Revision`, `Changeset`, `Config`, `Store`, `Manager`, `Options`.
+- `lib/recorder/` — the library: `Observer`, `Tape` (with `Tape::Data` and `Tape::Record`), `UpdateColumns`, `Revision`, `Changeset`, `Config`, `Store`, `Manager`, `Options`.
 - `lib/recorder/rails/` — the controller concern.
 - `lib/generators/recorder/` — the `recorder:install` generator and its migration templates.
 - `spec/dummy/` — a minimal Rails app the specs boot; its models and migrations are spec fixtures.
@@ -54,7 +54,7 @@ CI runs the suite across a Ruby × Rails matrix (`.github/workflows/ci.yml`) plu
 The flow of one recorded change, in the order the code runs:
 
 1. **Request context** — `Recorder::Rails::ControllerConcern` adds `before_action`s that put `user_id`, `ip`, `action_date` and `meta` into `Recorder.store.params`.
-2. **Opt-in** — a model includes `Recorder::Observer` and calls `recorder(...)` once per class hierarchy, which checks the options, stores a frozen copy with symbol keys and registers `after_create`, `after_update` and `after_destroy` callbacks, conditioned on `Recorder.recording?` and the model's `if:` and `unless:`. Subclasses inherit both. Each callback builds a `Recorder::Tape` for the record.
+2. **Opt-in** — a model includes `Recorder::Observer` and calls `recorder(...)` once per class hierarchy, which checks the options, stores a frozen copy with symbol keys and registers `after_create`, `after_update` and `after_destroy` callbacks, conditioned on `Recorder.recording?` and the model's `if:` and `unless:`. Subclasses inherit both. Each callback builds a `Recorder::Tape` for the record. Another way in is `recorder_update_columns` (`Recorder::UpdateColumns`): it writes with `update_columns`, sets the dirty state an update would leave, checks the same conditions and calls `Tape#record_update`, all in one transaction. `recorder` also wraps each create and update in an `around_create`/`around_update` that marks the record until Recorder's own callback runs, so `recorder_update_columns` cannot replace `saved_changes` before the save's revision reads them.
 3. **Payload** — `Recorder::Tape::Data#data_for` builds `{attributes:, changes:, associations:}`: a snapshot of the attributes with the values last loaded or saved (`attributes` with `attributes_in_database` merged over it), the record's `saved_changes` except on destroy, and, on create and destroy, the same snapshot per recorded association.
 4. **Persist** — `Recorder::Tape::Record#record` merges the request context with the payload and creates a `Recorder::Revision`, still inside the save transaction.
 5. **Read back** — `Recorder::Revision#item_changeset` wraps `data['changes']` in a changeset class, resolved as the model's `recorder_changeset_class`, then `"#{Model}Changeset"`, then `Recorder::Changeset`.

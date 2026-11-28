@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'recorder/tape'
+require 'recorder/update_columns'
 require 'active_support/concern'
 require 'active_support/core_ext/object/deep_dup'
 
@@ -11,6 +12,25 @@ module Recorder
     # The condition every `recorder` callback checks before the model's own.
     RECORDING = -> { Recorder.recording? }
 
+    # Set on a record while its create or update runs and Recorder has yet to
+    # record it; `recorder_update_columns` refuses to run while it is set.
+    REVISION_PENDING = :@recorder_revision_pending
+
+    # The `around_create` and `around_update` that set REVISION_PENDING.
+    # `recorder` prepends it before registering its own callbacks, so it wraps
+    # every create or update callback but the `after_create` and
+    # `after_update` declared below `recorder`, which run after it, and ends
+    # right before Recorder's own. A save of the record inside it leaves the
+    # flag to the outer one.
+    REVISION_WINDOW =
+      proc do |record, block|
+        outer = record.instance_variable_defined?(REVISION_PENDING)
+        record.instance_variable_set(REVISION_PENDING, true) if Recorder.recording?
+        block.call
+      ensure
+        record.remove_instance_variable(REVISION_PENDING) if !outer && record.instance_variable_defined?(REVISION_PENDING)
+      end
+
     included do
       has_many :revisions, class_name: '::Recorder::Revision', inverse_of: :item, as: :item
     end
@@ -20,6 +40,15 @@ module Recorder
     # and `unless:`, which the callbacks hold.
     def recorder_options
       self.class.recorder_options.deep_dup
+    end
+
+    # Writes the attributes like `update_columns`, without validations or
+    # callbacks, and records the write as an `update` revision in the same
+    # transaction. Without attributes, writes the record's unsaved changes.
+    # Returns `true`, or `false` when nothing was written. See the README for
+    # where it can be called from.
+    def recorder_update_columns(attributes = nil)
+      Recorder::UpdateColumns.new(self).call(attributes)
     end
 
     class_methods do
@@ -55,6 +84,9 @@ module Recorder
         # while recording is on.
         conditions = {if: [RECORDING, options[:if]].compact, unless: options[:unless]}
 
+        around_create(prepend: true, &REVISION_WINDOW)
+        around_update(prepend: true, &REVISION_WINDOW)
+
         after_create(**conditions) do
           Recorder::Tape.new(self).record_create
         end
@@ -68,6 +100,18 @@ module Recorder
         end
 
         @recorder_options = options
+      end
+
+      private
+
+      # The `if:` and `unless:` passed to `.recorder`, which the callbacks
+      # hold, or `nil` until `.recorder` is called in the hierarchy.
+      # @api private
+      def recorder_conditions
+        declared_in = recorder_declared_in
+        return unless declared_in
+
+        declared_in.instance_variable_get(:@recorder_options).slice(:if, :unless)
       end
     end
   end
