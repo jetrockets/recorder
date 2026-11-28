@@ -502,6 +502,31 @@ RSpec.describe Recorder do
       expect(Security.create!(name: 'Facebook', identifier: 'FB').revisions.last)
         .to have_attributes(user_id: 2, ip: IPAddr.new('127.0.0.1'), meta: {'source' => {'name' => 'csv'}})
     end
+
+    context 'with an Active Record object in the info' do
+      let!(:user) { User.create!(name: 'Ann') }
+
+      it 'returns the object itself, without initializing a copy' do
+        initialized = 0
+        User.define_method(:spec_initialized) { initialized += 1 }
+        User.set_callback(:initialize, :after, :spec_initialized)
+        described_class.info = {user: user}
+
+        expect(described_class.info[:user]).to equal(user)
+        expect(initialized).to eq(0)
+      ensure
+        User.skip_callback(:initialize, :after, :spec_initialized)
+        User.remove_method(:spec_initialized)
+      end
+
+      it 'writes the user on the revisions that follow once merged and written back' do
+        described_class.info = {user: user}
+
+        described_class.info = described_class.info.merge(meta: {reason: 'Scheduled'})
+
+        expect(Security.create!(name: 'Facebook', identifier: 'FB').revisions.last.user_id).to eq(user.id)
+      end
+    end
   end
 
   describe '.meta' do
@@ -541,6 +566,23 @@ RSpec.describe Recorder do
 
       expect(Security.create!(name: 'Facebook', identifier: 'FB').revisions.last.meta)
         .to eq('source' => {'name' => 'csv'}, 'reason' => 'Scheduled')
+    end
+
+    it 'returns a class in the meta as it is, without freezing it' do
+      job = stub_const('ReportJob', Class.new)
+      described_class.meta = {source: job}
+
+      expect(described_class.meta[:source]).to equal(job)
+      expect(job).not_to be_frozen
+    end
+
+    it 'returns a HashWithIndifferentAccess as a frozen one' do
+      described_class.meta = ActiveSupport::HashWithIndifferentAccess.new(source: {name: +'csv'})
+
+      meta = described_class.meta
+
+      expect(meta).to be_a(ActiveSupport::HashWithIndifferentAccess)
+      expect([meta, meta[:source], meta['source']['name']]).to all(be_frozen)
     end
   end
 

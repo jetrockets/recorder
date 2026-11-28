@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'active_support/core_ext/object/deep_dup'
-
 require 'recorder/config'
 require 'recorder/version'
 
@@ -83,8 +81,10 @@ module Recorder
       end
     end
 
-    # Returns a frozen copy of the current Recorder information: every key
-    # set through `info=`, `meta=` and `with_info`, or an empty Hash.
+    # Returns the current Recorder information: every key set through
+    # `info=`, `meta=` and `with_info`, or an empty Hash. Hashes, Arrays and
+    # Strings in it are frozen copies; any other object is the one Recorder
+    # holds.
     # @api public
     def info
       params = store.params.dup
@@ -92,13 +92,13 @@ module Recorder
       frozen_copy(params)
     end
 
-    # Returns a frozen copy of the current meta, or `nil`.
+    # Returns the current meta, or `nil`, copied as `info` copies it.
     # @api public
     def meta
       frozen_copy(current_meta)
     end
 
-    # Returns a frozen copy of the current user id, or `nil`.
+    # Returns the current user id, or `nil`, copied as `info` copies it.
     # @api public
     def user_id
       frozen_copy(store.params[:user_id])
@@ -155,17 +155,15 @@ module Recorder
       current.symbolize_keys.merge(meta.symbolize_keys)
     end
 
-    # A copy frozen all the way down, which shares nothing with the store.
+    # Hashes, Arrays and Strings are copied and frozen, nested ones included;
+    # any other object is returned as it is.
     def frozen_copy(value)
-      deep_freeze(value.deep_dup)
-    end
-
-    def deep_freeze(value)
       case value
-      when Hash then value.each_value { |nested| deep_freeze(nested) }
-      when Array then value.each { |nested| deep_freeze(nested) }
+      when Hash then value.transform_values { |nested| frozen_copy(nested) }.freeze
+      when Array then value.map { |nested| frozen_copy(nested) }.freeze
+      when String then value.frozen? ? value : value.dup.freeze
+      else value
       end
-      value.freeze
     end
   end
 end

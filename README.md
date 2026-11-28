@@ -340,9 +340,13 @@ Recorder.meta     # the meta, or nil
 Recorder.info     # every key Recorder.info=, Recorder.meta= and with_info set, or {}
 ```
 
-Each returns a frozen copy, nested Hashes, Arrays and Strings included, so
-changing it raises `FrozenError` and never changes what Recorder writes. Inside
-a `with_info` block they return the block's info. To change the info, build a
+Hashes, Arrays and Strings come back as frozen copies, nested ones included, so
+changing one raises `FrozenError` and never changes what Recorder writes. A
+`HashWithIndifferentAccess` comes back as one; any other Hash subclass comes
+back as a plain Hash. Every other object, such as a record, a class, a `Date` or
+an `ActionController::Parameters`, is returned as it is: the object Recorder
+holds, not a copy, and not frozen. Inside a `with_info` block the readers return
+the block's info. To change the info, build a
 new Hash and set it, for the rest of the request with `Recorder.info=` or
 `Recorder.meta=`, or for a block with `with_info`:
 

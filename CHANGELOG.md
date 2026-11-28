@@ -19,9 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through `Recorder.info=` or `Recorder.meta=` inside it. Blocks nest. It does
   not switch recording on or off.
 - `Recorder.user_id`, `Recorder.meta` and `Recorder.info`, which return the
-  current request information as frozen copies, nested values included, and
-  reflect `with_info`. They replace reads of `Recorder.store.params`, which is
-  internal.
+  current request information and reflect `with_info`. Hashes, Arrays and
+  Strings in it come back as frozen copies, nested ones included; any other
+  object, such as a record or a class, is returned as it is. They replace
+  reads of `Recorder.store.params`, which is internal.
 
 ## [2.0.0]
 
