@@ -17,11 +17,22 @@ module Recorder
       desc: 'Add index by `user_id` column to `recorder_revisions` table'
     )
 
+    class_option(
+      :with_index_by_item_and_created_at,
+      type: :boolean,
+      default: false,
+      desc: 'Replace the `(item_type, item_id)` index of an existing `recorder_revisions` table ' \
+            'with one on `(item_type, item_id, created_at, id)`'
+    )
+
     desc 'Generates (but does not run) a migration to add a `recorder_revisions` table.'
 
     def create_migration_file
       add_or_skip_recorder_migration('create_recorder_revisions')
       add_or_skip_recorder_migration('add_index_by_user_id_to_recorder_revisions') if options.with_index_by_user_id?
+      if options.with_index_by_item_and_created_at?
+        add_or_skip_recorder_migration('add_index_by_item_and_created_at_to_recorder_revisions')
+      end
     end
 
     def self.next_migration_number(dirname)

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A `--with_index_by_item_and_created_at` option on `recorder:install`, which
+  generates a migration for an existing install that replaces the
+  `(item_type, item_id)` index of `recorder_revisions` with the one the install
+  migration creates. It builds the new index and drops the old one
+  concurrently, so the table stays writable, and an interrupted run can be run
+  again: it drops the invalid index an interrupted build leaves behind and
+  builds it anew. It drops the old index only once the new one is in place, and
+  raises, keeping the old index, if an index of the new name already exists on
+  other columns or with a condition. The README's installation section covers
+  the upgrade.
+
+### Changed
+
+- The `recorder:install` migration indexes `recorder_revisions` on
+  `(item_type, item_id, created_at, id)`, as
+  `index_recorder_revisions_on_item_and_created_at`, in place of
+  `(item_type, item_id)`. The index has the order `ordered_by_created_at`
+  sorts by, so the newest revisions of a record come off the index without a
+  sort, and it serves every lookup the old one did. It is larger, since btree
+  deduplication no longer applies to its keys. Existing installs keep their
+  index until they run the migration from
+  `--with_index_by_item_and_created_at`.
+
 ## [2.0.0]
 
 ### Added

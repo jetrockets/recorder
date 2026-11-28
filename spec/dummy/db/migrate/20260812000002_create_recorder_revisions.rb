@@ -16,6 +16,7 @@ class CreateRecorderRevisions < ActiveRecord::Migration[6.1]
       t.datetime :created_at, null: false
     end
 
-    add_index :recorder_revisions, %i[item_type item_id]
+    add_index :recorder_revisions, %i[item_type item_id created_at id],
+      name: 'index_recorder_revisions_on_item_and_created_at'
   end
 end

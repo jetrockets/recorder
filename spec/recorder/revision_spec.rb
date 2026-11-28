@@ -96,6 +96,25 @@ module Recorder
 
         expect(events_in_order).to eq(%w[update create])
       end
+
+      # With sequential scans off for the transaction, the planner reads an index
+      # whatever the size of the table, and sorts unless the index is in order.
+      it "reads a record's newest revisions in order off the index" do
+        security.update!(name: 'Meta')
+        connection = described_class.connection
+        connection.execute('SET LOCAL enable_seqscan = off')
+
+        plan = connection.select_values(
+          "EXPLAIN #{security.revisions.ordered_by_created_at.limit(20).to_sql}"
+        ).join("\n")
+
+        # The dummy app's create migration is edited in place, so a test database
+        # migrated before it changed keeps the old index until it is recreated.
+        expect(plan).to include('Index Scan Backward using index_recorder_revisions_on_item_and_created_at'),
+          "expected the plan to read index_recorder_revisions_on_item_and_created_at backwards:\n#{plan}\n" \
+          'If the test database predates that index, drop and recreate it.'
+        expect(plan).not_to include('Sort')
+      end
     end
 
     # The changeset is rebuilt from values that have been through the `jsonb`

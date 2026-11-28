@@ -1,0 +1,59 @@
+# frozen_string_literal: true
+
+# This migration replaces the `(item_type, item_id)` index of the
+# `recorder_revisions` table with one on `(item_type, item_id, created_at, id)`,
+# which serves the same lookups and also returns a record's revisions in
+# `ordered_by_created_at` order without sorting them.
+#
+# Indexes are built and dropped concurrently, outside a transaction, so the table
+# stays writable meanwhile. Each step skips what is already done, and an invalid
+# index left behind by an interrupted build is dropped and built again, so an
+# interrupted run can be run again. The old index is dropped only once the new
+# one is in place.
+class AddIndexByItemAndCreatedAtToRecorderRevisions < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  disable_ddl_transaction!
+
+  ITEM_INDEX = 'index_recorder_revisions_on_item_type_and_item_id'
+  ITEM_AND_CREATED_AT_INDEX = 'index_recorder_revisions_on_item_and_created_at'
+
+  def up
+    replace_index ITEM_INDEX, ITEM_AND_CREATED_AT_INDEX, %i[item_type item_id created_at id]
+  end
+
+  def down
+    replace_index ITEM_AND_CREATED_AT_INDEX, ITEM_INDEX, %i[item_type item_id]
+  end
+
+  private
+
+  def replace_index(old_name, new_name, columns)
+    # An interrupted concurrent build leaves its index behind, marked invalid.
+    # Queries never use an invalid index.
+    valid, = index_state(new_name)
+    remove_index :recorder_revisions, name: new_name, algorithm: :concurrently if valid == false
+
+    add_index :recorder_revisions, columns, name: new_name, algorithm: :concurrently, if_not_exists: true
+    check_index(new_name, columns, old_name)
+
+    remove_index :recorder_revisions, name: old_name, algorithm: :concurrently, if_exists: true
+  end
+
+  # `IF NOT EXISTS` goes by the name alone, so an index the app already had
+  # under that name is checked before the old index goes.
+  def check_index(name, columns, old_name)
+    valid, definition = index_state(name)
+    return if valid && definition.end_with?(" USING btree (#{columns.join(', ')})")
+
+    raise ActiveRecord::MigrationError,
+          "Expected #{name} to be a valid index on (#{columns.join(', ')}) with no condition, " \
+          "found: #{definition}. #{old_name} is left in place; drop or rename #{name}, then run " \
+          'this migration again.'
+  end
+
+  def index_state(name)
+    connection.select_rows(<<~SQL.squish).first
+      SELECT indisvalid, pg_get_indexdef(indexrelid) FROM pg_index
+      WHERE indexrelid = to_regclass(#{connection.quote(name)})
+    SQL
+  end
+end
