@@ -487,6 +487,7 @@ RSpec.describe Recorder do
     end
 
     it 'raises RevisionNotSaved, carrying the revision, when the revision fails validation' do
+      security # its own create revision is written before the stub
       allow(Recorder::Revision).to receive(:new).and_wrap_original do |original, *args|
         original.call(*args).tap { |revision| revision.action_date = nil }
       end
