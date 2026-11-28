@@ -80,6 +80,10 @@ place: if the app already has an index named
 `index_recorder_revisions_on_item_and_created_at` on other columns or with a
 condition, the migration raises and leaves the old index alone.
 
+With strong_migrations, the upgrade fails the same check as the install
+migration. Wrap the `add_index` call in the generated migration's
+`replace_index` method in `safety_assured { ... }`.
+
 ## Usage
 
 ### Observing a model
