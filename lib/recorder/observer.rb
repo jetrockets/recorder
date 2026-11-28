@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'recorder/tape'
+require 'recorder/update_columns'
 require 'active_support/concern'
 require 'active_support/core_ext/object/deep_dup'
 
@@ -22,6 +23,14 @@ module Recorder
       self.class.recorder_options.deep_dup
     end
 
+    # Writes the attributes like `update_columns`, without validations or
+    # callbacks, and records the write as an `update` revision in the same
+    # transaction. Without attributes, writes the record's unsaved changes.
+    # Returns `true`, or `false` when there was no row to update.
+    def recorder_update_columns(attributes = nil)
+      Recorder::UpdateColumns.new(self).call(attributes)
+    end
+
     class_methods do
       # The options passed to `.recorder` in this class or the nearest ancestor,
       # frozen and with symbol keys.
@@ -36,6 +45,15 @@ module Recorder
         return self if instance_variable_defined?(:@recorder_options)
 
         superclass.recorder_declared_in if superclass.respond_to?(:recorder_declared_in)
+      end
+
+      # The `if:` and `unless:` passed to `.recorder`, which the callbacks
+      # hold, or `nil` until `.recorder` is called in the hierarchy.
+      def recorder_conditions
+        declared_in = recorder_declared_in
+        return unless declared_in
+
+        declared_in.instance_variable_get(:@recorder_options).slice(:if, :unless)
       end
 
       # Registers the callbacks, which subclasses inherit, so it is called once
