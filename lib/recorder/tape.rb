@@ -9,6 +9,10 @@ module Recorder
   class Tape
     extend Record
 
+    # The events the callbacks write, each revision with a snapshot.
+    # @api private
+    EVENTS = %w[create update destroy].freeze
+
     attr_reader :item, :data
 
     def initialize(item)
@@ -42,13 +46,7 @@ module Recorder
     end
 
     def record(params)
-      Recorder::Tape.record(
-        # The value `has_many :revisions` looks rows up by: the base class
-        # of an STI subclass.
-        item_type: item.class.polymorphic_name,
-        item_id: item.id,
-        **params
-      )
+      Recorder::Tape.record(**Recorder::Tape.item_columns(item), **params)
     end
   end
 end

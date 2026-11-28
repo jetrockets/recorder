@@ -54,6 +54,30 @@ module Recorder
       end
     end
 
+    # The callbacks write create, update and destroy, always with a snapshot.
+    # An event an app records itself may carry nothing.
+    describe 'data' do
+      def revision_of(event, data)
+        described_class.new(item_type: 'Security', item_id: 1, event: event, action_date: Date.current, data: data)
+      end
+
+      %w[create update destroy].each do |event|
+        it "may not be empty on #{event}" do
+          expect(revision_of(event, {})).not_to be_valid
+        end
+      end
+
+      it 'may be an empty Hash on another event' do
+        expect(revision_of('approve', {})).to be_valid
+      end
+
+      [nil, []].each do |data|
+        it "may not be #{data.inspect} on another event" do
+          expect(revision_of('approve', data)).not_to be_valid
+        end
+      end
+    end
+
     describe 'recording an item that no longer exists' do
       it 'declares the `item` association optional' do
         expect(described_class.reflect_on_association(:item).options[:optional]).to be(true)

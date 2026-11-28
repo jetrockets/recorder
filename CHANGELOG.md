@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Recorder.record(item, event:, data: {}, **columns)`, which writes a revision
+  for an event the callbacks do not see, such as a record viewed, approved or
+  exported, and returns it. The item is any saved Active Record object, stored
+  under its `polymorphic_name` as the callbacks store it. The request context
+  from `Recorder.info` applies, and each keyword sets the column of that name
+  over it, `nil` included, except `meta:`, which is merged into the request's
+  meta. `action_date:` takes a Date, Time or DateTime and stores its date in
+  the application's time zone. A keyword that is not a column of
+  `recorder_revisions`, or that names a column Recorder writes itself, raises
+  `ArgumentError`, and so do a record that was never saved, a record whose id
+  the `item_id` column would store as another value (a UUID or a composite id
+  in the default `bigint` column), a blank event, `data` whose `attributes`,
+  `changes` or `associations` is not a Hash, and a `create`, `update` or
+  `destroy` revision without `attributes`, the snapshot that replaying a
+  record's history reads. It writes nothing and returns `nil` while recording
+  is off, does not check the model's `if:` and `unless:`, and raises
+  `Recorder::RevisionNotSaved` for a revision that fails validation.
+
+### Changed
+
+- `Recorder::Revision` accepts an empty Hash as `data` for an event other than
+  `create`, `update` and `destroy`, so an event with nothing to add passes
+  validation. Revisions of those three events, the ones the callbacks write,
+  are validated as before.
+- `Recorder::Tape.record` is marked `@api private`. It behaves as before;
+  `Recorder.record` is the public way to write a revision.
+
 ## [2.0.0]
 
 ### Added

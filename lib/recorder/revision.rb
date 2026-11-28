@@ -12,7 +12,8 @@ module Recorder
     validates :item_type, presence: true
     validates :event, presence: true
     validates :action_date, presence: true
-    validates :data, presence: true
+    # An event other than those the callbacks write may carry an empty Hash.
+    validates :data, presence: true, unless: -> { data == {} && Recorder::Tape::EVENTS.exclude?(event) }
 
     # Newest first. Revisions written in the same instant fall back to the
     # order they were inserted in.
