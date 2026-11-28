@@ -310,12 +310,16 @@ Every revision written inside the block gets it, from the callbacks or from
 symbols and raises `ArgumentError` for the columns Recorder writes itself,
 before the block runs. It returns the block's value.
 
-- `meta:` is merged into the current meta, one level deep: its keys are added,
-  or replace the ones the current meta has. Keys on both sides are symbols for
-  the block, so `reason:` replaces a `'reason'` the request set. `meta: nil`
-  leaves the block's revisions without meta. `meta:` has to be a Hash or `nil`,
-  and so does the current meta it merges into; anything else raises
-  `ArgumentError`.
+- `meta:` is merged into the current meta, one level deep, and its keys are
+  stored as symbols. The current meta's keys stay as they are, strings
+  included, except that a key the block's meta also names, as a String or a
+  Symbol, gives way to the block's: `reason:` replaces a `'reason'` the
+  request set rather than sitting beside it. An empty `meta: {}` leaves the
+  meta as it is, `nil` included, and `meta: nil` leaves the block's revisions
+  without meta. `meta:` has to be a Hash or `nil`, and merging a non-empty one
+  into a current meta that is not a Hash raises `ArgumentError`. The block
+  works on its own copy of a Hash meta, so writing into it inside the block
+  does not outlast the block.
 - Any other key replaces its current value for the block. `user_id: nil`
   writes revisions without a user, for a change the app makes on its own
   during a user's request.

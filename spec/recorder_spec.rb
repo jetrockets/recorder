@@ -200,6 +200,15 @@ RSpec.describe Recorder do
         expect(params[:meta]).to equal(meta).and eq(locale: 'en')
       end
 
+      it 'gives a block that sets no meta a copy of the meta, so writes into it end with the block' do
+        meta = {locale: 'en'}
+        described_class.meta = meta
+
+        described_class.with_info(user_id: 7) { params[:meta][:reason] = 'Scheduled' }
+
+        expect(params[:meta]).to equal(meta).and eq(locale: 'en')
+      end
+
       it 'restores a meta key the block also set' do
         described_class.meta = {reason: 'Manual', locale: 'en'}
         described_class.with_info(meta: {reason: 'Scheduled'}) { nil }
@@ -340,11 +349,58 @@ RSpec.describe Recorder do
 
         revision =
           described_class.with_info(meta: {reason: 'Scheduled'}) do
-            expect(described_class.meta).to eq(reason: 'Scheduled', locale: 'en')
+            expect(described_class.meta).to eq('locale' => 'en', :reason => 'Scheduled')
             write_revision
           end
 
         expect(revision.meta).to eq('reason' => 'Scheduled', 'locale' => 'en')
+      end
+
+      it 'replaces a key the current meta has as both a string and a symbol' do
+        described_class.meta = {'reason' => 'Manual', :reason => 'Retry', :locale => 'en'}
+
+        meta = described_class.with_info(meta: {'reason' => 'Scheduled'}) { described_class.meta }
+
+        expect(meta).to eq(locale: 'en', reason: 'Scheduled')
+      end
+
+      it 'keeps the keys of the current meta as they are' do
+        described_class.meta = {'source' => 'api'}
+
+        source = described_class.with_info(meta: {reason: 'Scheduled'}) { described_class.meta['source'] }
+
+        expect(source).to eq('api')
+      end
+
+      it 'keeps a current HashWithIndifferentAccess meta one' do
+        described_class.meta = ActiveSupport::HashWithIndifferentAccess.new(source: 'api')
+
+        meta = described_class.with_info(meta: {reason: 'Scheduled'}) { described_class.meta }
+
+        expect(meta).to be_a(ActiveSupport::HashWithIndifferentAccess)
+        expect(meta.to_h).to eq('source' => 'api', 'reason' => 'Scheduled')
+      end
+
+      it 'leaves no meta as none when given an empty meta' do
+        observed = described_class.with_info(meta: {}) { [params.key?(:meta), write_revision.meta] }
+
+        expect(observed).to eq([false, nil])
+      end
+
+      it 'leaves the current meta as it is when given an empty meta' do
+        described_class.meta = {'source' => 'api'}
+
+        meta = described_class.with_info(meta: {}) { described_class.meta }
+
+        expect(meta).to eq('source' => 'api')
+      end
+
+      it 'leaves a current meta that is not a Hash as it is when given an empty meta' do
+        described_class.meta = 'Scheduled'
+
+        meta = described_class.with_info(meta: {}) { described_class.meta }
+
+        expect(meta).to eq('Scheduled')
       end
 
       [{'reason' => 'Manual', :reason => 'Scheduled'}, {:reason => 'Scheduled', 'reason' => 'Manual'}].each do |meta|

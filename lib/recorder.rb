@@ -56,20 +56,23 @@ module Recorder
     end
 
     # Sets Recorder information for the block only and returns the block's
-    # value. Keys follow `info=`. `meta:` is merged into the current meta with
-    # symbol keys, or clears it if `nil`; any other key replaces its current
-    # value. When the block ends, by returning or raising, the information is
-    # restored exactly as it was before the block, writes made inside it
-    # through `info=` and `meta=` included. The recording switch is left alone.
+    # value. Keys follow `info=`. `meta:` is merged into the current meta,
+    # whose keys stay as they are except those the block sets under either a
+    # String or a Symbol, which the block's Symbol keys replace; an empty
+    # Hash leaves the meta as it is and `nil` clears it. Any other key
+    # replaces its current value. When the block ends, by returning or
+    # raising, the information is restored exactly as it was before the
+    # block, writes made inside it through `info=` and `meta=` included. The
+    # recording switch is left alone.
     # @raise [ArgumentError] before the block runs, if there is no block, if
-    #   the hash sets a column Recorder writes itself, or if `meta:` or the
-    #   current meta is neither a Hash nor `nil`
+    #   the hash sets a column Recorder writes itself, if `meta:` is neither a
+    #   Hash nor `nil`, or if a non-empty `meta:` would merge into a current
+    #   meta that is not a Hash
     # @api public
     def with_info(hash)
       raise ArgumentError, 'Recorder.with_info needs a block. To set info for the rest of the request, use Recorder.info=.' unless block_given?
 
-      info = normalize_info(hash, 'Recorder.with_info')
-      info[:meta] = merged_meta(info[:meta]) if info.key?(:meta)
+      info = block_info(hash)
       params = store.params
       previous = params.dup
 
@@ -142,17 +145,38 @@ module Recorder
       store.params[:meta]
     end
 
-    # A new Hash, so neither the caller's meta nor the current one changes.
-    def merged_meta(meta)
-      return if meta.nil?
+    # The keys a `with_info` block sets. A Hash meta is always a new Hash, so
+    # writes into it during the block reach neither the caller's meta nor the
+    # one restored afterwards.
+    def block_info(hash)
+      info = normalize_info(hash, 'Recorder.with_info')
+      meta = info.fetch(:meta, {})
+      return info if meta.nil?
       raise ArgumentError, "Recorder.with_info takes a Hash as meta:, or nil for none, not #{meta.class}." unless meta.is_a?(Hash)
 
-      current = current_meta || {}
+      current = current_meta
+      if meta.any?
+        info[:meta] = merged_meta(current, meta)
+      elsif current.is_a?(Hash)
+        info[:meta] = current.dup
+      else
+        info.delete(:meta)
+      end
+      info
+    end
+
+    # The current meta's keys stay as they are, but one the block's meta also
+    # names, as a String or a Symbol, gives way to the block's Symbol key, so
+    # the two never sit side by side.
+    def merged_meta(current, meta)
+      current ||= {}
       unless current.is_a?(Hash)
         raise ArgumentError, "Recorder.with_info cannot merge meta: into the current meta, a #{current.class}."
       end
 
-      current.symbolize_keys.merge(meta.symbolize_keys)
+      meta = meta.symbolize_keys
+      names = meta.keys.map(&:to_s)
+      current.reject { |key, _| names.include?(key.to_s) }.merge(meta)
     end
 
     # Hashes, Arrays and Strings are copied and frozen, nested ones included;

@@ -11,8 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `Recorder.with_info`, which sets Recorder information for the saves in a
   block and returns the block's value. `meta:` is merged into the current
-  meta with symbol keys, `meta: nil` leaves the block's revisions without
-  meta, and any other key replaces its current value. It takes the keys
+  meta with symbol keys, replacing a current key of the same name whether it
+  is a String or a Symbol and leaving the other current keys as they are; an
+  empty `meta: {}` leaves the meta as it is, `meta: nil` leaves the block's
+  revisions without meta, and any other key replaces its current value. It takes the keys
   `Recorder.info=` takes, so a column Recorder writes itself raises
   `ArgumentError`, before the block runs. When the block returns or raises,
   the information is restored exactly as it was, including whatever was set
