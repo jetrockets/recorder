@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `method_missing`, without `respond_to_missing?`, is kept as it is, so the
   revisions written in that request store a `nil` `user_id`. It used to give
   its `id`. Define `respond_to_missing?` on it, or override
-  `recorder_user_id`. An object that does not implement `respond_to?` at all,
+  `recorder_user_id`. An `OpenStruct` without an `id` is kept the same way,
+  where `recorder_user_id` used to return `nil`. An object that does not implement `respond_to?` at all,
   such as a `BasicObject` subclass without `method_missing`, makes
   `recorder_user_id` raise `NoMethodError` on every request. It used to be
   kept as the user, and the first save that wrote a revision raised
@@ -24,9 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `Recorder::Rails::ControllerConcern#recorder_user_id` calls `current_user`
-  once per request. It used to call it twice whenever it returned a value
-  without a public `id` method, such as an id, so a `current_user` that looks
-  the user up or decodes a token did that work twice on every request.
+  once per request. It used to call it twice whenever calling `id` on what it
+  returned raised `NoMethodError`, as for an id or a Hash, so a `current_user`
+  that looks the user up or decodes a token did that work twice on every
+  request.
 - A `NoMethodError` raised inside `current_user`, or inside the `id` of the
   record it returns, propagates from `recorder_user_id`. The first used to run
   `current_user` a second time before propagating. The second was swallowed and

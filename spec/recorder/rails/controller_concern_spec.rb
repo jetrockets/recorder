@@ -148,6 +148,15 @@ RSpec.describe Recorder::Rails::ControllerConcern, type: :controller do
 
       expect(controller).to have_received(:current_user).once
     end
+
+    it 'keeps a String id as it is, with one call' do
+      allow(controller).to receive(:current_user).and_return('9f1c2d3e-0000-4000-8000-000000000001')
+
+      get :index
+
+      expect(Recorder.store.params[:user_id]).to eq('9f1c2d3e-0000-4000-8000-000000000001')
+      expect(controller).to have_received(:current_user).once
+    end
   end
 
   context 'when current_user returns nil' do
