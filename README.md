@@ -240,8 +240,9 @@ revision behind.
 A revision that cannot be written fails the save: it raises, and the save rolls
 back, along with any transaction around it that does not rescue the error. This
 holds for `save` and `update` as much as for `save!`, and for `destroy`. A
-revision that fails validation, or that a callback on `Recorder::Revision`
-halts, raises `Recorder::RevisionNotSaved`, a subclass of
+revision that fails validation, or that a callback on `Recorder::Revision` or
+on [your revision class](#a-revision-class-of-your-own) halts, raises
+`Recorder::RevisionNotSaved`, a subclass of
 `ActiveRecord::RecordNotSaved` whose `record` is the revision. A database error
 raises as it would from any other write.
 
@@ -275,10 +276,12 @@ Rails.application.config.to_prepare do
 end
 ```
 
-Declaring it on every reload replaces the association each time. Keep
-`optional: true`. Without it, `belongs_to_required_by_default` makes the user
-required: a change made with no user, or by a user since deleted, raises
-`Recorder::RevisionNotSaved`, and the save rolls back.
+Declaring it on every reload replaces the association each time. With
+[a revision class of your own](#a-revision-class-of-your-own), declare it in
+that class instead. Keep `optional: true`. Without it,
+`belongs_to_required_by_default` makes the user required: a change made with no
+user, or by a user since deleted, raises `Recorder::RevisionNotSaved`, and the
+save rolls back.
 
 A revision's `action_date` is today in the application's time zone,
 `Date.current`. To date revisions otherwise, such as an import replaying past
@@ -411,6 +414,75 @@ To render a changeset yourself, define `PostChangeset` — the class is looked u
 as `"#{model}Changeset"` — or point at another one with a
 `recorder_changeset_class` class method on the model. Otherwise
 `Recorder::Changeset` is used.
+
+### A revision class of your own
+
+To give revisions callbacks, validations, scopes, associations or accessors for
+columns you added, subclass `Recorder::Revision` and name the subclass in an
+initializer:
+
+```ruby
+# config/initializers/recorder.rb
+Recorder.config.revision_class = 'Revision'
+
+# app/models/revision.rb
+class Revision < Recorder::Revision
+  after_create_commit :push_to_activity_feed
+
+  scope :by, ->(user) { where(user_id: user.id) }
+
+  private
+
+  def push_to_activity_feed
+    ActivityFeed.push(self)
+  end
+end
+```
+
+Recorder writes every revision through the class, `Recorder::Tape` included,
+and `revisions` on an observed model returns its instances. It shares
+`recorder_revisions` with `Recorder::Revision`: both read the same rows, and
+the class name is stored nowhere. Without the setting, or with `nil`,
+revisions are `Recorder::Revision`.
+
+The setting takes the class name as a String; anything else raises
+`ArgumentError`. Recorder looks the class up each time it writes a revision and
+keeps no reference to it, so in development the class reloads like any other
+model. A name that is not `Recorder::Revision` or a subclass of it raises
+`ArgumentError` from the first save that writes a revision, and the save rolls
+back. So does a class that Active Record would treat as single-table
+inheritance, which it does when `recorder_revisions` has a `type` column: set
+`self.inheritance_column = nil` in the class.
+
+Assign the setting in an initializer. A model reads it once, when it includes
+`Recorder::Observer`, to declare `revisions`, and Rails runs the initializers
+before it loads the models. A model loaded before the assignment, by a gem or
+another initializer for instance, keeps `revisions` on the class set then,
+while the revisions it writes go through the new one. Active Record keeps the
+class `revisions` resolved for as long as the model lives, so keep the revision
+class with the observed models, in `app/models`, and the two reload together.
+
+The class's callbacks run in the save transaction, as the revision is written.
+One that halts, or a validation that fails, raises `Recorder::RevisionNotSaved`
+from the save, and one that raises an error raises that error; either way the
+save rolls back with its revision (see
+[When a revision is written](#when-a-revision-is-written)). A callback that
+must not fail the save rescues its own errors. One with effects outside the
+database, such as a notification, belongs in `after_create_commit`, which runs
+once the save commits and never for one that rolls back.
+
+Associations declared in the class reload with it, so a user model with another
+name can be declared there rather than in a `to_prepare` block (see
+[Recording the current user](#recording-the-current-user)):
+
+```ruby
+class Revision < Recorder::Revision
+  belongs_to :user, class_name: 'Account', optional: true
+end
+```
+
+Draper finds a decorator by class name: a `Revision` is decorated with
+`RevisionDecorator`, or with `Recorder::RevisionDecorator` when there is none.
 
 ## Upgrading to 2.0.0
 
