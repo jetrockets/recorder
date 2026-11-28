@@ -112,6 +112,43 @@ RSpec.describe Recorder::UpdateColumns do
         expect(revisions(record).last.data['changes']).to eq('name' => %w[Facebook Meta], 'identifier' => %w[FB META])
       end
     end
+
+    it 'takes id for a primary key of another name, as write_attribute does' do
+      model = securities_model('Guarded')
+      model.class_eval do
+        self.primary_key = 'guard_id'
+        recorder
+      end
+      record = model.create!(guard_id: 1001, name: 'Facebook', identifier: 'FB')
+      record.recorder_update_columns(id: 1002)
+
+      aggregate_failures do
+        expect(model.find(1002).name).to eq('Facebook')
+        expect(record.changes).to eq({})
+        expect(revisions(record).last.data['changes']).to eq('guard_id' => [1001, 1002])
+      end
+    end
+
+    it 'writes columns only, leaving an attribute without one unsaved' do
+      model = securities_model('Notified')
+      model.class_eval do
+        attribute :notify, :boolean, default: false
+        recorder
+      end
+      assigned = model.create!(name: 'Facebook', identifier: 'FB').tap { |record| record.notify = true }
+      passed = model.create!(name: 'Facebook', identifier: 'FB')
+      assigned.name = 'Meta'
+      assigned.recorder_update_columns
+      passed.recorder_update_columns(name: 'Meta', notify: true)
+
+      aggregate_failures do
+        [assigned, passed].each do |record|
+          expect(row(record).name).to eq('Meta')
+          expect(record.changes).to eq('notify' => [false, true])
+          expect(revisions(record).last.data['changes']).to eq('name' => %w[Facebook Meta])
+        end
+      end
+    end
   end
 
   describe 'when nothing changes' do
@@ -171,20 +208,63 @@ RSpec.describe Recorder::UpdateColumns do
       expect(row(security).settle_days).to eq(7)
     end
 
-    it 'leaves previously_new_record? as update_columns leaves it' do
-      security.recorder_update_columns(name: 'Meta')
+    it 'clears previously_new_record?, as an update does' do
+      expect { security.recorder_update_columns(name: 'Meta') }
+        .to change(security, :previously_new_record?).from(true).to(false)
+    end
+
+    def state_after_update_columns(record)
+      record.settle_days = 7
+      record.recorder_update_columns(name: 'Meta')
+      attributes = record.attributes.except('id', 'created_at', 'updated_at')
+      [attributes, record.changes, record.saved_changes, record.previously_new_record?]
+    end
+
+    it 'leaves the record the same whether or not the write is recorded' do
+      recorded = state_after_update_columns(security)
+      Recorder.store.recorder_disabled!
+
+      expect(state_after_update_columns(Security.create!(name: 'Facebook', identifier: 'FB'))).to eq(recorded)
+    end
+  end
+
+  describe 'a partially loaded record' do
+    it 'refuses a column it did not load, changing nothing' do
+      record = Security.select(:id, :name).find(security.id)
 
       aggregate_failures do
-        expect(security.previously_new_record?).to be(true)
-        expect(security.saved_change_to_id?).to be(false)
+        expect { record.recorder_update_columns(name: 'Meta', identifier: 'META', settle_days: 5) }
+          .to raise_error(ActiveModel::MissingAttributeError, "missing attribute 'identifier' for Security")
+        expect(record.changes).to eq({})
+        expect(record.has_attribute?(:identifier)).to be(false)
+        expect(row(record).attributes).to include('name' => 'Facebook', 'identifier' => 'FB', 'settle_days' => 3)
+        expect(revisions(record)).to be_empty
       end
     end
 
-    it 'leaves the record with the instance variables update_columns leaves' do
-      security.recorder_update_columns(name: 'Meta')
-      unrecorded = Security.create!(name: 'Facebook', identifier: 'FB').tap { |record| record.update_columns(name: 'Meta') }
+    it 'refuses an unsaved change on a column it did not load, changing nothing' do
+      record = Security.select(:id, :name).find(security.id)
+      record.identifier = 'META'
 
-      expect(security.instance_variables).to match_array(unrecorded.instance_variables)
+      aggregate_failures do
+        [[{name: 'Meta'}], [{identifier: 'M'}], []].each do |args|
+          expect { record.recorder_update_columns(*args) }
+            .to raise_error(ActiveModel::MissingAttributeError, "missing attribute 'identifier' for Security")
+          expect(record.attributes).to eq('id' => security.id, 'name' => 'Facebook', 'identifier' => 'META')
+        end
+        expect(row(record).attributes).to include('name' => 'Facebook', 'identifier' => 'FB')
+        expect(revisions(record)).to be_empty
+      end
+    end
+
+    it 'writes a column it loaded' do
+      record = Security.select(:id, :name).find(security.id)
+      record.recorder_update_columns(name: 'Meta')
+
+      aggregate_failures do
+        expect(row(record).name).to eq('Meta')
+        expect(revisions(record).last.data['changes']).to eq('name' => %w[Facebook Meta])
+      end
     end
   end
 
@@ -295,6 +375,39 @@ RSpec.describe Recorder::UpdateColumns do
       aggregate_failures do
         expect(security.changes).to eq('name' => %w[Facebook Meta], 'settle_days' => [3, 7])
         expect(security.saved_changes).to eq({})
+        expect(security.previously_new_record?).to be(true)
+      end
+    end
+
+    it 'rolls back and unwinds for an error that is not a StandardError' do
+      stop = Class.new(Exception) # rubocop:disable Lint/InheritException
+      allow(Recorder::Tape).to receive(:new).and_raise(stop)
+
+      aggregate_failures do
+        expect { security.recorder_update_columns(name: 'Meta') }.to raise_error(stop)
+        expect(row(security).name).to eq('Facebook')
+        expect(security.changes).to eq('name' => %w[Facebook Meta])
+      end
+    end
+
+    it 'returns false, writing and recording nothing, when a callback raises ActiveRecord::Rollback' do
+      model = securities_model('Rolled')
+      model.class_eval do
+        recorder if: :roll_back?
+
+        def roll_back?
+          raise ActiveRecord::Rollback if name == 'Meta'
+
+          true
+        end
+      end
+      record = model.find(security.id)
+
+      aggregate_failures do
+        expect(record.recorder_update_columns(name: 'Meta')).to be(false)
+        expect(row(record).name).to eq('Facebook')
+        expect(revisions(record)).to be_empty
+        expect(record.changes).to eq('name' => %w[Facebook Meta])
       end
     end
 
@@ -348,6 +461,36 @@ RSpec.describe Recorder::UpdateColumns do
         expect(security.recorder_update_columns(name: 'Meta')).to be(false)
         expect(revisions(security)).to be_empty
         expect(security.changes).to eq('name' => %w[Facebook Meta])
+      end
+    end
+
+    # Rails 6.1's `update_columns` matches the primary key alone; 7.0 adds the
+    # lock column to its WHERE. Neither increments the lock column.
+    describe 'with optimistic locking' do
+      let(:model) do
+        securities_model('Locked').tap do |model|
+          model.locking_column = :settle_days
+          model.recorder
+        end
+      end
+      let!(:record) { model.find(security.id) }
+
+      it 'leaves the lock column alone' do
+        record.recorder_update_columns(name: 'Meta')
+
+        expect(row(record).settle_days).to eq(3)
+      end
+
+      it 'writes a stale record on Rails 6.1, with its stale snapshot, and returns false on 7.0 and later' do
+        model.find(security.id).update!(name: 'Meta')
+        result = record.recorder_update_columns(identifier: 'META')
+        outcome = [result, row(record).identifier, revisions(record).last&.data&.dig('attributes', 'name')]
+
+        if ActiveRecord.version < Gem::Version.new('7.0')
+          expect(outcome).to eq([true, 'META', 'Facebook'])
+        else
+          expect(outcome).to eq([false, 'FB', 'Meta'])
+        end
       end
     end
   end
@@ -443,6 +586,14 @@ RSpec.describe Recorder::UpdateColumns do
       expect(records.map { |record| revisions(record).count }).to eq([1, 0])
     end
 
+    it 'counts as an update for a condition that tells it from a create with previously_new_record?' do
+      model = securities_model('Featured') { recorder if: -> { destroyed? || !previously_new_record? || identifier == 'FT' } }
+      record = model.create!(name: 'Facebook', identifier: 'FB')
+      record.recorder_update_columns(name: 'Meta')
+
+      expect(revisions(record, event: %w[create update]).map(&:event)).to eq(%w[update])
+    end
+
     it 'rolls the write back when a condition raises' do
       model = securities_model('Misspelt') { recorder if: :listd? }
       record = model.find(security.id)
@@ -473,30 +624,30 @@ RSpec.describe Recorder::UpdateColumns do
   end
 
   describe 'errors' do
-    it 'raises for a new record, assigning nothing' do
-      record = Security.new(name: 'Facebook', identifier: 'FB')
-
-      aggregate_failures do
-        expect { record.recorder_update_columns(name: 'Meta') }
-          .to raise_error(ActiveRecord::ActiveRecordError, 'cannot update a new record')
-        expect(record.name).to eq('Facebook')
+    # The error the block raises, in a savepoint that is rolled back either way.
+    def error_of
+      ActiveRecord::Base.transaction(requires_new: true) do
+        yield
+        raise ActiveRecord::Rollback
       end
+      nil
+    rescue => e
+      e
     end
 
-    it 'raises for a destroyed record' do
-      security.destroy!
-
-      expect { security.recorder_update_columns(name: 'Meta') }
-        .to raise_error(ActiveRecord::ActiveRecordError, 'cannot update a destroyed record')
-    end
-
-    it 'raises for a readonly record, assigning and writing nothing' do
-      security.readonly!
+    it 'raises what update_columns raises for a new, destroyed or readonly record, assigning nothing' do
+      new_record = Security.new(name: 'Facebook', identifier: 'FB')
+      destroyed = Security.create!(name: 'Facebook', identifier: 'FB').tap(&:destroy!)
+      readonly = Security.find(security.id).tap(&:readonly!)
 
       aggregate_failures do
-        expect { security.recorder_update_columns(name: 'Meta') }
-          .to raise_error(ActiveRecord::ReadOnlyRecord, 'Security is marked as readonly')
-        expect(security.name).to eq('Facebook')
+        [new_record, destroyed, readonly].each do |record|
+          raised = error_of { record.recorder_update_columns(name: 'Meta') }
+          expect(record.name).to eq('Facebook')
+          # Rails 6.1's update_columns writes a readonly record, which save! refuses.
+          expected = error_of { record.update_columns(name: 'Meta') } || error_of { record.save! }
+          expect([raised.class, raised.message]).to eq([expected.class, expected.message])
+        end
         expect(row(security).name).to eq('Facebook')
       end
     end
@@ -525,7 +676,159 @@ RSpec.describe Recorder::UpdateColumns do
         expect(record.changes).to eq({})
         expect(row(record).attributes).to include('name' => 'Facebook', 'identifier' => 'FB')
         expect(revisions(record)).to be_empty
+        expect { record.update_columns(identifier: 'META') }
+          .to raise_error(ActiveRecord::ActiveRecordError, 'identifier is marked as readonly')
       end
+    end
+
+    # It could not set the change aside: Rails 7.1 and later refuse to assign a
+    # readonly attribute of a persisted record.
+    it 'raises for an unsaved change on a readonly attribute, changing nothing' do
+      model = securities_model('Frozen')
+      model.class_eval do
+        recorder
+        attr_readonly :identifier
+      end
+      record = model.create!(name: 'Facebook', identifier: 'FB')
+      record.identifier << '!'
+
+      aggregate_failures do
+        expect { record.recorder_update_columns(name: 'Meta') }
+          .to raise_error(ActiveRecord::ActiveRecordError, 'identifier is marked as readonly')
+        expect(record.changes).to eq('identifier' => ['FB', 'FB!'])
+        expect(row(record).name).to eq('Facebook')
+      end
+    end
+  end
+
+  describe 'inside a save of the record' do
+    def history(record)
+      Recorder::Revision.where(item_type: record.class.polymorphic_name, item_id: record.id).order(:id)
+        .map { |revision| [revision.event, revision.data['changes'].except('id', 'created_at', 'updated_at')] }
+    end
+
+    it 'refuses to run from an after_create or after_update declared above recorder, failing the save' do
+      created = securities_model('Numbered')
+      created.class_eval do
+        after_create { recorder_update_columns(identifier: "N-#{id}") }
+        recorder
+      end
+      updated = securities_model('Renumbered')
+      updated.class_eval do
+        after_update { recorder_update_columns(identifier: 'N') if saved_change_to_name? }
+        recorder
+      end
+      record = updated.create!(name: 'Facebook', identifier: 'FB')
+
+      aggregate_failures do
+        expect { created.create!(name: 'Facebook', identifier: 'tmp') }
+          .to raise_error(ActiveRecord::ActiveRecordError, /declare the callback below `recorder`/)
+        expect(created.where(identifier: 'tmp')).not_to exist
+        expect { record.update!(name: 'Meta') }.to raise_error(ActiveRecord::ActiveRecordError, /after_save/)
+        expect(row(record).attributes).to include('name' => 'Facebook', 'identifier' => 'FB')
+        expect(history(record)).to eq([['create', {'name' => [nil, 'Facebook'], 'identifier' => [nil, 'FB']}]])
+      end
+    end
+
+    it 'refuses to run from before_update' do
+      model = securities_model('Numbered')
+      model.class_eval do
+        recorder
+        before_update { recorder_update_columns(identifier: 'N') }
+      end
+      record = model.create!(name: 'Facebook', identifier: 'FB')
+
+      expect { record.update!(name: 'Meta') }.to raise_error(ActiveRecord::ActiveRecordError, /before_update/)
+    end
+
+    it 'runs from an after_create declared below recorder, after the create revision' do
+      model = securities_model('Numbered')
+      model.class_eval do
+        recorder
+        after_create { recorder_update_columns(identifier: "N-#{id}") }
+      end
+      record = model.create!(name: 'Facebook', identifier: 'tmp')
+
+      expect(history(record)).to eq([['create', {'name' => [nil, 'Facebook'], 'identifier' => [nil, 'tmp']}],
+        ['update', {'identifier' => ['tmp', "N-#{record.id}"]}]])
+    end
+
+    it 'runs from after_save, after the revision of the save' do
+      model = securities_model('Numbered')
+      model.class_eval do
+        after_save { recorder_update_columns(identifier: "N-#{id}") if saved_change_to_name? }
+        recorder
+      end
+      record = model.create!(name: 'Facebook', identifier: 'tmp')
+
+      aggregate_failures do
+        expect(history(record)).to eq([['create', {'name' => [nil, 'Facebook'], 'identifier' => [nil, 'tmp']}],
+          ['update', {'identifier' => ['tmp', "N-#{record.id}"]}]])
+        expect(record.saved_changes.keys).to eq(%w[identifier])
+      end
+    end
+
+    it 'runs while recording is off' do
+      model = securities_model('Numbered')
+      model.class_eval do
+        after_create { recorder_update_columns(identifier: "N-#{id}") }
+        recorder
+      end
+      record = nil
+      Class.new { include Recorder::Manager }.new.recorder_disabled! { record = model.create!(name: 'Facebook', identifier: 'tmp') }
+
+      aggregate_failures do
+        expect(row(record).identifier).to eq("N-#{record.id}")
+        expect(history(record)).to be_empty
+      end
+    end
+
+    it 'runs after a save that raised or was halted' do
+      model = securities_model('Numbered')
+      model.class_eval do
+        before_update { throw :abort if name == 'Halted' }
+        after_update { raise 'failed' if name == 'Failed' }
+        recorder
+      end
+      record = model.create!(name: 'Facebook', identifier: 'FB')
+
+      aggregate_failures do
+        expect(record.update(name: 'Halted')).to be(false)
+        expect { record.update(name: 'Failed') }.to raise_error(RuntimeError, 'failed')
+        expect(record.recorder_update_columns(name: 'Meta')).to be(true)
+        expect(row(record).name).to eq('Meta')
+      end
+    end
+
+    def declare_callbacks(model, log, place)
+      model.class_eval do
+        before_save { log << [:before_save, place] }
+        around_save { |_, block| log << [:around_save, place] && block.call }
+        after_save { log << [:after_save, place] }
+        %i[create update].each do |event|
+          set_callback(event, :before) { log << [:"before_#{event}", place] }
+          set_callback(event, :around) { |_, block| log << [:"around_#{event}", place] && block.call }
+          public_send(:"after_#{event}") { log << [:"after_#{event}", place] }
+        end
+      end
+    end
+
+    # The callbacks a create and an update run, declared above and below where
+    # an observed model calls `recorder`.
+    def callback_log(name, observed:)
+      log = []
+      model = securities_model(name)
+      declare_callbacks(model, log, :above)
+      model.recorder if observed
+      declare_callbacks(model, log, :below)
+      model.create!(name: 'Facebook', identifier: 'FB').update!(name: 'Meta')
+      log
+    end
+
+    it 'leaves the order of the model’s own callbacks as it is' do
+      logs = [callback_log('Observed', observed: true), callback_log('Plain', observed: false)]
+
+      expect(logs.first).to eq(logs.last)
     end
   end
 end
