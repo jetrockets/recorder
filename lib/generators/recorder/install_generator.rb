@@ -10,6 +10,26 @@ module Recorder
 
     source_root File.expand_path('templates', __dir__)
 
+    # Column types for `item_id` and `user_id`, which hold the primary keys of
+    # the observed models and of the user model.
+    KEY_TYPES = %w[bigint uuid string].freeze
+
+    class_option(
+      :item_id_type,
+      type: :string,
+      enum: KEY_TYPES,
+      default: 'bigint',
+      desc: 'Column type of `item_id`, which holds the primary keys of the observed models'
+    )
+
+    class_option(
+      :user_id_type,
+      type: :string,
+      enum: KEY_TYPES,
+      default: 'bigint',
+      desc: 'Column type of `user_id`, which holds the primary key of the user model'
+    )
+
     class_option(
       :with_index_by_user_id,
       type: :boolean,
