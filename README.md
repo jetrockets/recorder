@@ -282,15 +282,102 @@ required: a change made with no user, or by a user since deleted, raises
 
 A revision's `action_date` is today in the application's time zone,
 `Date.current`. To date revisions otherwise, such as an import replaying past
-changes, set it yourself; it holds for the rest of the request or thread:
+changes, set it yourself; it holds for the rest of the request or thread, or,
+inside a [`with_info`](#info-for-some-saves-only) block, until the block ends:
 
 ```ruby
 Recorder.info = {action_date: Date.new(2020, 1, 1)}
 ```
 
-`created_at` is always when the revision was written. `Recorder.info` raises
+`created_at` is always when the revision was written. `Recorder.info=` raises
 `ArgumentError` for it and for the other columns Recorder writes itself: `id`,
 `item_type`, `item_id`, `event` and `data`.
+
+### Info for some saves only
+
+`Recorder.with_info` sets info for the saves in a block, such as the reason for
+a change or the role it was made under:
+
+```ruby
+def publish!
+  Recorder.with_info(meta: {reason: 'Scheduled'}) do
+    update!(published: true)
+  end
+end
+```
+
+Every revision written inside the block gets it, from the callbacks or from
+`Recorder::Tape`. It takes the keys `Recorder.info=` takes, stores them as
+symbols and raises `ArgumentError` for the columns Recorder writes itself,
+before the block runs. It returns the block's value.
+
+- `meta:` is merged into the current meta, one level deep, and its keys are
+  stored as symbols. The current meta's keys stay as they are, strings
+  included, except that a key the block's meta also names, as a String or a
+  Symbol, gives way to the block's: `reason:` replaces a `'reason'` the
+  request set rather than sitting beside it. An empty `meta: {}` leaves the
+  meta as it is, `nil` included, and `meta: nil` leaves the block's revisions
+  without meta. `meta:` has to be a Hash or `nil`, and merging a non-empty one
+  into a current meta that is not a Hash raises `ArgumentError`. The block
+  works on its own copy of a Hash meta, so writing into it inside the block
+  does not outlast the block.
+- Any other key replaces its current value for the block. `user_id: nil`
+  writes revisions without a user, for a change the app makes on its own
+  during a user's request.
+
+When the block ends, by returning or raising, the info is put back exactly as
+the block found it: keys it added are removed, keys it replaced get their
+values back, and meta that was `nil` or unset goes back to that. That includes
+whatever code inside the block set through `Recorder.info=` or `Recorder.meta=`:
+it holds until the block ends. Blocks nest, each starting from the info of the
+one around it and putting it back when it ends.
+
+`with_info` changes the info and nothing else. A revision is written inside the
+block only when one would be written outside it, and `recorder_disabled!`
+called inside the block without a block of its own stays in effect after it.
+Like `Recorder.info=`, it applies only to code that runs in the current fiber.
+A revision saved in another fiber, such as an `Enumerator#next` body, or in a
+thread started inside the block, gets none of the block's info, nor the
+request's; see [Known issues](#known-issues).
+
+### Reading the current info
+
+```ruby
+Recorder.user_id  # what is stored under user_id, normally the user id, or nil
+Recorder.meta     # the meta, or nil
+Recorder.info     # every key Recorder.info=, Recorder.meta= and with_info set, or {}
+```
+
+Hashes, Arrays and Strings come back as frozen copies, nested ones included, so
+changing one raises `FrozenError` and never changes what Recorder writes. A
+`HashWithIndifferentAccess` comes back as one; any other Hash subclass comes
+back as a plain Hash. Every other object, such as a record, a class, a `Date` or
+an `ActionController::Parameters`, is returned as it is: the object Recorder
+holds, not a copy, and not frozen. Inside a `with_info` block the readers return
+the block's info. To change the info, build a new Hash and set it, for the rest
+of the request with `Recorder.info=` or `Recorder.meta=` (inside a `with_info`
+block, until the block ends), or for a block with `with_info`:
+
+```ruby
+Recorder.meta = Recorder.meta.to_h.merge(locale: I18n.locale)
+```
+
+`Recorder.user_id` returns whatever is stored under `user_id`, normally the id.
+When a controller's `current_user` has no `id`, the concern stores the object
+itself, so the reader returns that object while revisions store no user. An
+app that sets `user:` rather than `user_id:` gets `nil`.
+
+Where `user_id` holds the id, a model can record only the changes made while a
+user is set, leaving out those of a job or a console that sets none:
+
+```ruby
+recorder if: -> { Recorder.user_id.present? }
+```
+
+`Recorder.store` is internal and may change in any release. Read the info with
+these methods instead of `Recorder.store.params`, set it for a few saves with
+`with_info` instead of merging into the store and cleaning up afterwards, and
+switch recording off with `recorder_disabled!` (see below).
 
 ### Turning recording off
 
@@ -503,7 +590,9 @@ The gem is under active maintenance and these defects are known:
 - `recorder_disabled!` reaches only the current fiber, not the whole thread:
   `RequestStore` keeps its state in fiber-local storage. Code that runs in
   another fiber inside the block, such as an `Enumerator#next` body or a task
-  under a fiber scheduler, is recorded.
+  under a fiber scheduler, is recorded. The request info is kept the same way,
+  so a revision saved in another fiber gets none of what `Recorder.info=`,
+  `Recorder.meta=` or a `with_info` block set.
 
 ## Development
 
