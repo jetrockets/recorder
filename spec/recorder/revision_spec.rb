@@ -108,7 +108,11 @@ module Recorder
           "EXPLAIN #{security.revisions.ordered_by_created_at.limit(20).to_sql}"
         ).join("\n")
 
-        expect(plan).to include('Index Scan Backward using index_recorder_revisions_on_item_and_created_at')
+        # The dummy app's create migration is edited in place, so a test database
+        # migrated before it changed keeps the old index until it is recreated.
+        expect(plan).to include('Index Scan Backward using index_recorder_revisions_on_item_and_created_at'),
+          "expected the plan to read index_recorder_revisions_on_item_and_created_at backwards:\n#{plan}\n" \
+          'If the test database predates that index, drop and recreate it.'
         expect(plan).not_to include('Sort')
       end
     end
