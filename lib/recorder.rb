@@ -12,7 +12,8 @@ require 'recorder/observer'
 require 'recorder/rails/controller_concern'
 
 module Recorder
-  # Columns Recorder writes itself, which `Recorder.info` cannot set.
+  # Columns Recorder writes itself, which `Recorder.info=` and
+  # `Recorder.with_info` cannot set.
   RESERVED_INFO_KEYS = %i[id item_type item_id event data created_at].freeze
   private_constant :RESERVED_INFO_KEYS
 
@@ -42,14 +43,16 @@ module Recorder
 
     # Sets Recorder information from the controller. Keys are stored as
     # symbols, so a string key replaces the symbol one rather than sitting
-    # beside it.
+    # beside it. It holds for the rest of the request or thread, or, inside a
+    # `with_info` block, until the block ends.
     # @raise [ArgumentError] if the hash sets a column Recorder writes itself
     # @api public
     def info=(hash)
       store.params.merge!(normalize_info(hash, 'Recorder.info'))
     end
 
-    # Sets Recorder meta information.
+    # Sets Recorder meta information. It holds for the rest of the request or
+    # thread, or, inside a `with_info` block, until the block ends.
     # @api public
     def meta=(hash)
       store.params[:meta] = hash
@@ -101,7 +104,10 @@ module Recorder
       frozen_copy(current_meta)
     end
 
-    # Returns the current user id, or `nil`, copied as `info` copies it.
+    # Returns whatever is stored under `user_id`, normally the id, or `nil`,
+    # copied as `info` copies it. A controller whose `current_user` has no
+    # `id` stores the object itself, which revisions store as no user; a user
+    # set as `user:` is not read here.
     # @api public
     def user_id
       frozen_copy(store.params[:user_id])
@@ -140,7 +146,7 @@ module Recorder
       hash
     end
 
-    # The only place that reads the meta from the store.
+    # The readers and `with_info` read the current meta through this method.
     def current_meta
       store.params[:meta]
     end

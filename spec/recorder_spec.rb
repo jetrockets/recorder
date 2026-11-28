@@ -156,6 +156,18 @@ RSpec.describe Recorder do
         release << true
         thread.join
       end
+
+      # Recorder.store is fiber-local; see Known issues in the README.
+      it 'reaches neither a fiber nor a thread started inside the block' do
+        described_class.info = {user_id: 1}
+
+        seen =
+          described_class.with_info(user_id: 7) do
+            [Fiber.new { described_class.user_id }.resume, Thread.new { described_class.user_id }.value]
+          end
+
+        expect(seen).to eq([nil, nil])
+      end
     end
 
     describe 'restoring the info' do
