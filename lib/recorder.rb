@@ -97,12 +97,10 @@ module Recorder
       check_data(data, 'data', DATA_KEYS)
 
       Recorder::Tape.write_revision(
-        # As `Recorder::Tape` writes them.
-        item_type: item.class.polymorphic_name,
-        item_id: item.id,
+        **Recorder::Tape.item_columns(item),
         event: event.to_s,
         data: data,
-        **record_columns(columns)
+        **record_columns(columns, Recorder::Tape.revision_columns.keys)
       )
     end
 
@@ -159,20 +157,20 @@ module Recorder
 
     # Symbolizes the keys. `action_date` and `meta` are converted only when
     # given, so that otherwise the request's values apply.
-    def record_columns(columns)
+    def record_columns(columns, column_names)
       columns = columns.symbolize_keys
-      check_columns(columns.keys)
+      check_columns(columns.keys, column_names)
       columns[:action_date] = record_date(columns[:action_date]) if columns.key?(:action_date)
       columns[:meta] = record_meta(columns[:meta]) if columns.key?(:meta)
       columns
     end
 
-    def check_columns(keys)
+    # The table's columns, so that a column an app added is accepted.
+    def check_columns(keys, column_names)
       reserved = keys & RESERVED_INFO_KEYS
       raise ArgumentError, "Recorder.record cannot set columns Recorder writes itself: #{reserved.join(", ")}" if reserved.any?
 
-      # The table's columns, so that a column an app added is accepted.
-      unknown = keys.map(&:to_s) - Recorder::Revision.column_names
+      unknown = keys.map(&:to_s) - column_names
       return if unknown.empty?
 
       raise ArgumentError, "Recorder.record got #{unknown.join(", ")}, not #{unknown.many? ? "columns" : "a column"} " \

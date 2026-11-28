@@ -29,6 +29,21 @@ module Recorder
         raise Recorder::RevisionNotSaved.new("Recorder could not write the revision: #{e.message}", revision)
       end
 
+      # The columns that name a revision's item. `item_type` is the value
+      # `has_many :revisions` looks rows up by: the base class of an STI
+      # subclass.
+      # @api private
+      def item_columns(item)
+        {item_type: item.class.polymorphic_name, item_id: item.id}
+      end
+
+      # The names of the revisions table's columns, each with the Active Record
+      # type that casts a value written to it.
+      # @api private
+      def revision_columns
+        Recorder::Revision.column_names.index_with { |name| Recorder::Revision.type_for_attribute(name) }
+      end
+
       private
 
       # A revision is dated by the request that made the change, or else today
