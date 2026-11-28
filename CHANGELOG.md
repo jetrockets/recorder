@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `recorder_update_columns` on observed models, which writes like
+  `update_columns`, without validations or callbacks, and records the write as
+  an `update` revision in the same transaction. It takes a hash of attributes
+  and writes those whose value differs from the database, or, without
+  arguments, writes the record's unsaved changes. Afterwards `saved_changes`
+  describes the write, as after a save, and other unsaved changes stay unsaved.
+  The revision applies `only:`, `ignore:` and `changes:`, and the model's `if:`
+  and `unless:` are checked, so it records what an `update` would. While
+  recording is off the write still happens, without a revision. A revision that
+  cannot be written rolls the write back, inside a transaction that rescues the
+  error too. `updated_at` is left alone, as `update_columns` leaves it.
+
 ## [2.0.0]
 
 ### Added

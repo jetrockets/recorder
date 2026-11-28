@@ -178,6 +178,8 @@ name a method and override that method.
 `Recorder::Tape.new(record).record_update` and its `record_create` and
 `record_destroy` siblings do not check the condition: calling one is the
 decision to record. They still write nothing while recording is off.
+[`recorder_update_columns`](#writing-columns-without-callbacks) checks it, as
+a save does.
 
 #### Subclasses
 
@@ -248,6 +250,63 @@ raises as it would from any other write.
 Nothing but the error rolls the save back. A transaction of your own that
 rescues it, or rescues `ActiveRecord::RecordNotSaved`, commits the record
 without its revision. Let the error propagate, or re-raise it.
+
+### Writing columns without callbacks
+
+`update_column` and `update_columns` skip callbacks, so they write no revision.
+`recorder_update_columns` writes like `update_columns`, without validations or
+callbacks, and records the write as an `update` revision:
+
+```ruby
+post.recorder_update_columns(status: 'archived', archived_at: Time.current)
+
+# or assign first, and write every unsaved change
+post.status = 'archived'
+post.recorder_update_columns
+```
+
+Given a hash, it assigns the attributes as `write_attribute` does, without
+calling the model's setters, and writes those whose value differs from the
+database. Called without arguments, it writes the record's unsaved changes.
+When nothing differs, it writes and records nothing. It returns `true`, or
+`false` when `update_columns` finds no row to update, such as one deleted since
+the record was loaded; nothing is recorded then.
+
+Afterwards the record looks as it would after a `save` of those attributes:
+`saved_changes` and `previous_changes` describe the write, and what it wrote is
+no longer in `changes`. Other unsaved changes, which the hash did not name, are
+neither written nor recorded, and stay in `changes`.
+
+The revision is the one `after_update` writes for a save: `only:`, `ignore:`
+and `changes:` apply, a `changes:` callback sees `saved_change_to_<attribute>?`
+for what was written, and a write that touches only ignored attributes records
+nothing. `if:` and `unless:` are checked after the write, as on a save. While
+recording is off, or when a condition says no, the write still happens without
+a revision. On a model that includes `Recorder::Observer` but whose hierarchy
+never called `recorder`, it writes without a revision, as a save there does. To
+skip the revision for one call, use `update_columns`, or call this inside
+`recorder_disabled!`.
+
+The write and the revision run in one transaction, and in a savepoint inside a
+transaction of your own, so a revision that cannot be written rolls the write
+back with it, even when that transaction rescues the error. The error is
+raised as from a save, and the record is left as a save that rolls back leaves
+it: the attributes keep their new values, unsaved, and `saved_changes` is empty.
+
+It raises what `update_columns` raises, before assigning anything:
+`ActiveRecord::ActiveRecordError` for a new or destroyed record and for an
+attribute declared with `attr_readonly`, and `ActiveRecord::ReadOnlyRecord` for
+a record marked readonly, on Rails 6.1 too, whose `update_columns` writes one.
+
+`updated_at` is left alone, as `update_columns` leaves it. To set it, pass it,
+as in `post.recorder_update_columns(status: 'archived', updated_at:
+Time.current)`; Rails 8.1's `touch:` option is not taken. `ignore:` keeps it
+out of the revision's changes.
+
+`previously_new_record?` is also left as `update_columns` leaves it, so on a
+record created through the same object it is still `true`. A condition that
+tells a create from an update with it treats such a write as a create;
+`saved_change_to_id?` tells them apart there too.
 
 ### Recording the current user
 
