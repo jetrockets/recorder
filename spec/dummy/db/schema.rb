@@ -10,10 +10,19 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2026_08_13_000001) do
+ActiveRecord::Schema.define(version: 2026_11_27_000002) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
+
+  create_table "currencies", id: :string, force: :cascade do |t|
+    t.string "name", null: false
+  end
+
+  create_table "legs", primary_key: ["trade_id", "position"], force: :cascade do |t|
+    t.uuid "trade_id", null: false
+    t.integer "position", null: false
+  end
 
   create_table "recorder_revisions", force: :cascade do |t|
     t.string "item_type", null: false
@@ -37,6 +46,15 @@ ActiveRecord::Schema.define(version: 2026_08_13_000001) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "guard_id"
+  end
+
+  create_table "ticks", id: false, force: :cascade do |t|
+    t.decimal "price", null: false
+  end
+
+  create_table "trades", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "type"
+    t.string "name", null: false
   end
 
   create_table "users", force: :cascade do |t|

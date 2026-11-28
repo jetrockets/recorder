@@ -3,10 +3,28 @@
 module Recorder
   class Tape
     module Record
+      # The primary key types each kind of `item_id` column stores unchanged,
+      # so that `revisions` finds the rows again.
+      ITEM_KEY_TYPES = {
+        integer: %i[integer],
+        uuid: %i[uuid],
+        string: %i[integer uuid string text],
+        text: %i[integer uuid string text]
+      }.freeze
+
+      # A UUID in any form Active Record accepts: groups of four hex digits,
+      # each optionally followed by a hyphen, optionally in braces.
+      UUID = /\A(\{)?(\h{4}-?){8}(?(1)\}|)\z/
+
+      private_constant :ITEM_KEY_TYPES, :UUID
+
+      # @raise [Recorder::UnsupportedPrimaryKey] if `item_id` cannot hold the
+      #   primary key of the model `item_type` names
       def record(params)
         return unless Recorder.recording?
 
         revision = Recorder::Revision.new(params_for(params))
+        fit_item_key(revision)
         revision.save!
       # The failure of a revision written from a callback on this one comes
       # through as it is.
@@ -27,6 +45,60 @@ module Recorder
         Recorder.store.params.merge(params).tap do |merged|
           merged[:action_date] = merged[:action_date].presence || Date.current
         end
+      end
+
+      # Checks the key of the model `revision.item` loads, the base class of an
+      # STI subclass, against the `item_id` column, and writes a UUID key in
+      # the form the database returns it in, so `revisions` of the record
+      # loaded again finds it. An `item_type` that names no model with a table
+      # is not checked.
+      def fit_item_key(revision)
+        model = item_model(revision)
+        return if model.nil?
+
+        key = model.primary_key
+        unsupported_key("#{model.name} has no single-column primary key") unless key.is_a?(String)
+
+        key_type = model.type_for_attribute(key)
+        column = revision.class.columns_hash['item_id']
+        unless ITEM_KEY_TYPES.fetch(item_id_kind(column), []).include?(key_type.type)
+          unsupported_key(
+            "#{model.name}'s primary key #{key} (#{key_type.type || key_type.class.name || "a custom type"}) " \
+            "does not fit #{revision.class.table_name}.item_id (#{column.sql_type})"
+          )
+        end
+
+        revision.item_id = canonical_uuid(revision.item_id) if key_type.type == :uuid
+      end
+
+      def unsupported_key(problem)
+        raise Recorder::UnsupportedPrimaryKey,
+          "#{problem}, so Recorder cannot write its revisions. See \"Primary keys\" in the Recorder README."
+      end
+
+      def item_model(revision)
+        item_type = revision.item_type.to_s
+        model = revision.class.polymorphic_class_for(item_type)
+        model if model.is_a?(Class) && model < ActiveRecord::Base && !model.abstract_class? && model.table_exists?
+      # A NameError about `item_type` itself means it names no constant, or is
+      # not a constant name. Any other comes from loading the model.
+      rescue NameError => e
+        raise unless e.name.nil? || item_type == e.name.to_s || item_type.split('::').include?(e.name.to_s)
+      end
+
+      # The column's type, or nothing for a `character(n)` column, which pads
+      # shorter keys so that `revision.item` does not find them.
+      def item_id_kind(column)
+        column.type unless column.sql_type.match?(/\Acharacter(?! varying)/)
+      end
+
+      # The form PostgreSQL returns a UUID in, as Active Record 7.2 and later
+      # cast one. A value that is not a UUID is left as it is.
+      def canonical_uuid(value)
+        return value unless value.is_a?(String) && value.match?(UUID)
+
+        hex = value.delete('{}-').downcase
+        [hex[0, 8], hex[8, 4], hex[12, 4], hex[16, 4], hex[20, 12]].join('-')
       end
     end
   end

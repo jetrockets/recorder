@@ -34,10 +34,12 @@ describe Recorder::InstallGenerator, type: :generator do
     connection.schema_cache.clear!
   end
 
-  # The gem's own options, without Thor's built-ins (`--force`, `--quiet`, ...),
-  # which every generator inherits from `Rails::Generators::Base`.
-  def recorder_options
-    (described_class.class_options.keys - ::Rails::Generators::Base.class_options.keys).map(&:to_s)
+  # The gem's own switches, the boolean options that each add a migration,
+  # without Thor's built-ins (`--force`, `--quiet`, ...), which every generator
+  # inherits from `Rails::Generators::Base`.
+  def recorder_switches
+    described_class.class_options.except(*::Rails::Generators::Base.class_options.keys)
+      .select { |_name, option| option.type == :boolean }.keys.map(&:to_s)
   end
 
   def generated_migrations
@@ -149,6 +151,48 @@ describe Recorder::InstallGenerator, type: :generator do
     end
   end
 
+  describe 'key column types' do
+    def key_column_types
+      in_isolated_schema do |connection|
+        run_generated_migrations
+
+        connection.columns('recorder_revisions').to_h { |c| [c.name, c.sql_type] }.values_at('item_id', 'user_id')
+      end
+    end
+
+    before { prepare_destination }
+
+    {'uuid' => 'uuid', 'string' => 'character varying', 'bigint' => 'bigint'}.each do |type, sql_type|
+      it "makes `item_id` a #{sql_type} column with `--item_id_type=#{type}`" do
+        run_generator %W[--item_id_type=#{type}]
+
+        expect(key_column_types).to eq([sql_type, 'bigint'])
+      end
+
+      it "makes `user_id` a #{sql_type} column with `--user_id_type=#{type}`" do
+        run_generator %W[--user_id_type=#{type}]
+
+        expect(key_column_types).to eq(['bigint', sql_type])
+      end
+    end
+
+    it 'takes both options together' do
+      run_generator %w[--item_id_type=uuid --user_id_type=string]
+
+      expect(key_column_types).to eq(['uuid', 'character varying'])
+    end
+
+    %w[item_id_type user_id_type].each do |option|
+      it "rejects an unsupported `--#{option}` and writes nothing" do
+        dasherized = option.dasherize
+
+        expect { run_generator %W[--#{option}=integer] }
+          .to output(/Expected '--#{dasherized}' to be one of bigint, uuid, string; got integer/).to_stderr
+        expect(generated_migrations).to eq([])
+      end
+    end
+  end
+
   describe 'a destination that already has the migration' do
     before do
       prepare_destination
@@ -171,14 +215,14 @@ describe Recorder::InstallGenerator, type: :generator do
       expect(described_class.class_options.key?(:with_partitions)).to be(false)
     end
 
-    # A general guard: if an option is ever added whose template is missing, or
+    # A general guard: if a switch is ever added whose template is missing, or
     # whose migration does not run, this fails without anyone remembering to
     # write an example for it.
-    it 'dispatches every one to a template that exists and runs' do
+    it 'dispatches every switch to a template that exists and runs' do
       prepare_destination
-      run_generator(recorder_options.map { |name| "--#{name}" })
+      run_generator(recorder_switches.map { |name| "--#{name}" })
 
-      expect(generated_migrations.length).to eq(recorder_options.length + 1)
+      expect(generated_migrations.length).to eq(recorder_switches.length + 1)
 
       in_isolated_schema do |connection|
         expect { run_generated_migrations }.not_to raise_error
