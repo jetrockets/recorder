@@ -75,7 +75,10 @@ several times the size of the old one, since btree deduplication no longer
 applies to its keys; only records with many revisions read noticeably faster.
 If the run is interrupted, by a deploy timeout or a `statement_timeout` for
 instance, run it again: it drops the invalid index an interrupted build leaves
-behind and builds it anew.
+behind and builds it anew. The old index is dropped only once the new one is in
+place: if the app already has an index named
+`index_recorder_revisions_on_item_and_created_at` on other columns or with a
+condition, the migration raises and leaves the old index alone.
 
 ## Usage
 

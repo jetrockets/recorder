@@ -200,6 +200,34 @@ describe Recorder::InstallGenerator, type: :generator do
       SQL
     end
 
+    def index_oid(connection, name)
+      connection.select_value("SELECT #{connection.quote(name)}::regclass::oid")
+    end
+
+    # A concurrent build waits for every transaction writing to the table to
+    # end. One left open on another connection makes it give up once
+    # `lock_timeout` runs out, the way a deploy timeout would cut it short.
+    def while_another_transaction_writes
+      pool = ActiveRecord::Base.connection_pool
+      other = pool.checkout
+      other.execute('BEGIN')
+      other.execute(<<~SQL.squish)
+        INSERT INTO recorder_generator_test.recorder_revisions (item_type, event, data, action_date, created_at)
+        VALUES ('Post', 'create', '{}', CURRENT_DATE, now())
+      SQL
+      yield
+    ensure
+      other.execute('ROLLBACK')
+      pool.checkin(other)
+    end
+
+    def with_lock_timeout(connection)
+      connection.execute("SET lock_timeout = '100ms'")
+      yield
+    ensure
+      connection.execute('RESET lock_timeout')
+    end
+
     it 'generates the upgrade migration after the create migration' do
       expect(generated_migrations.map { |path| File.basename(path).sub(/\A\d+_/, '') })
         .to eq(['create_recorder_revisions.rb', "#{upgrade}.rb"])
@@ -235,14 +263,62 @@ describe Recorder::InstallGenerator, type: :generator do
       end
     end
 
+    it 'keeps the item index when the build fails' do
+      in_isolated_schema do |connection|
+        create_table_with_item_index(connection)
+
+        expect do
+          while_another_transaction_writes { with_lock_timeout(connection) { run_generated_migration(upgrade) } }
+        end.to raise_error(ActiveRecord::LockWaitTimeout)
+
+        expect(indexed_columns(connection)).to include(item_index => %w[item_type item_id])
+        expect(valid_index?(connection, item_index)).to be(true)
+      end
+    end
+
+    context 'when an index of the new name has another shape' do
+      it 'raises and keeps the item index if it covers other columns' do
+        in_isolated_schema do |connection|
+          create_table_with_item_index(connection)
+          connection.add_index :recorder_revisions, :created_at, name: new_index
+
+          expect { run_generated_migration(upgrade) }
+            .to raise_error(ActiveRecord::MigrationError, /#{item_index} is left in place/)
+          expect(indexed_columns(connection)).to include(item_index => %w[item_type item_id])
+        end
+      end
+
+      it 'raises and keeps the item index if it is partial' do
+        in_isolated_schema do |connection|
+          create_table_with_item_index(connection)
+          connection.add_index :recorder_revisions, new_columns, name: new_index, where: "item_type = 'Post'"
+
+          expect { run_generated_migration(upgrade) }
+            .to raise_error(ActiveRecord::MigrationError, /#{item_index} is left in place/)
+          expect(indexed_columns(connection)).to include(item_index => %w[item_type item_id])
+        end
+      end
+
+      it 'raises and keeps the new index when rolled back' do
+        in_isolated_schema do |connection|
+          create_table_with_item_index(connection)
+          run_generated_migration(upgrade)
+          connection.add_index :recorder_revisions, :item_type, name: item_index
+
+          expect { run_generated_migration(upgrade, :down) }
+            .to raise_error(ActiveRecord::MigrationError, /#{new_index} is left in place/)
+          expect(indexed_columns(connection)).to include(new_index => new_columns)
+        end
+      end
+    end
+
     context 'when an earlier run was interrupted' do
-      it 'drops the item index once the new one is built' do
+      it 'drops the item index once the new one is built, without building it again' do
         in_isolated_schema do |connection|
           create_table_with_item_index(connection)
           connection.add_index :recorder_revisions, new_columns, name: new_index
 
-          run_generated_migration(upgrade)
-
+          expect { run_generated_migration(upgrade) }.not_to(change { index_oid(connection, new_index) })
           expect(indexed_columns(connection)).to eq(new_index => new_columns)
         end
       end

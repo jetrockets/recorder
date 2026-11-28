@@ -15,7 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   migration creates. It builds the new index and drops the old one
   concurrently, so the table stays writable, and an interrupted run can be run
   again: it drops the invalid index an interrupted build leaves behind and
-  builds it anew. The README's installation section covers the upgrade.
+  builds it anew. It drops the old index only once the new one is in place, and
+  raises, keeping the old index, if an index of the new name already exists on
+  other columns or with a condition. The README's installation section covers
+  the upgrade.
 
 ### Changed
 
